@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype - Architecte IA 2027</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script> <!-- Pour la visualisation -->
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --secondary: #a29bfe;
+            --dark: #0a0a0a;
+            --light: #e0e0e0;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--dark);
+            color: var(--light);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            margin-bottom: 2rem;
+            border-radius: 0 0 10px 10px;
+        }
+
+        h1, h2, h3 {
+            color: var(--light);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        h2 {
+            color: var(--secondary);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 0.5rem;
+        }
+
+        .module {
+            background: #1a1a1a;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .theory, .lab, .quiz {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #252525;
+            border-radius: 8px;
+        }
+
+        .lab canvas {
+            background: #111;
+            border-radius: 5px;
+            display: block;
+            margin: 1rem auto;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+        }
+
+        .badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            margin: 0.2rem;
+            font-size: 0.9rem;
+        }
+
+        .quiz-question {
+            margin-bottom: 1rem;
+        }
+
+        .quiz-options {
+            margin-left: 1rem;
+        }
+
+        .quiz-options label {
+            display: block;
+            margin: 0.5rem 0;
+            cursor: pointer;
+        }
+
+        .quiz-result {
+            margin-top: 1rem;
+            padding: 0.5rem;
+            border-radius: 5px;
+        }
+
+        .success {
+            background: rgba(46, 204, 113, 0.2);
+            border-left: 4px solid var(--success);
+            color: var(--success);
+        }
+
+        .danger {
+            background: rgba(231, 76, 60, 0.2);
+            border-left: 4px solid var(--danger);
+            color: var(--danger);
+        }
+
+        #embedding-visualization {
+            width: 100%;
+            height: 400px;
+            background: #111;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .dashboard {
+            background: #1a1a1a;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        progress {
+            width: 100%;
+            height: 20px;
+            border-radius: 10px;
+        }
+
+        progress::-webkit-progress-value {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+
+        .progress-container {
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Architecte IA 2027</h1>
+        <p>Prototype : Naviguer dans le Chaos, Réinventer le Futur</p>
+    </header>
+
+    <div class="container">
+        <!-- Dashboard -->
+        <div class="dashboard">
+            <h2>📊 Mon Tableau de Bord</h2>
+            <div class="progress-container">
+                <h3>Progrès : Module 1</h3>
+                <progress id="module-progress" value="0" max="100"></progress>
+                <p id="progress-text">0% complété</p>
+            </div>
+            <div>
+                <h3>Mes Badges</h3>
+                <div id="user-badges">
+                    <!-- Les badges seront ajoutés ici dynamiquement -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Module 1.1 : La Boîte Noire -->
+        <div class="module">
+            <h2>📚 Module 1.1 : La Boîte Noire des LLM</h2>
+
+            <!-- Théorie -->
+            <div class="theory">
+                <h3>🧠 Théorie : Tokenization et Embeddings</h3>
+                <p>
+                    Les LLM ne "comprennent" pas le texte comme nous. Ils le transforment en une série de <strong>tokens</strong> (morceaux de mots),
+                    puis en <strong>vecteurs numériques</strong> (embeddings) dans un espace mathématique à plusieurs dimensions.
+                </p>
+                <p>
+                    Par exemple, le mot <em>"roi"</em> peut être représenté par un vecteur comme <code>[0.2, -0.5, 0.8, ..., 0.1]</code> (en réalité, des centaines ou milliers de dimensions).
+                    Les mots proches dans cet espace ont des sens similaires : <em>"roi"</em> sera proche de <em>"reine"</em> ou <em>"château"</em>.
+                </p>
+                <p>
+                    <strong>Pourquoi c'est important ?</strong> Parce que c'est cette représentation qui permet aux LLM de "comprendre" les relations entre les mots,
+                    même sans conscience. C'est aussi ce qui rend leur comportement <strong>imprévisible</strong> : une petite modification dans un vecteur peut changer radicalement le résultat.
+                </p>
+            </div>
+
+            <!-- Lab : Visualisation d'Embeddings -->
+            <div class="lab">
+                <h3>🔬 Lab : Visualiser des Embeddings en 2D</h3>
+                <p>
+                    Ici, nous allons simuler une projection en 2D d'embeddings pour les mots : <strong>roi, reine, château, chien, chat</strong>.
+                    En réalité, ces vecteurs ont des centaines de dimensions, mais cette simplification permet de comprendre le concept.
+                </p>
+                <div id="embedding-visualization"></div>
+                <button onclick="generateEmbeddingVisualization()">Générer la visualisation</button>
+                <p><em>Note : Cette visualisation utilise des données simulées (pas d'appel API).</em></p>
+            </div>
+
+            <!-- QCM -->
+            <div class="quiz">
+                <h3>❓ QCM : Testez vos connaissances</h3>
+                <form id="quiz-form">
+                    <div class="quiz-question">
+                        <p>1. Pourquoi l'ordre des mots compte-t-il dans un prompt pour un LLM ?</p>
+                        <div class="quiz-options">
+                            <label><input type="radio" name="q1" value="a"> a) Parce que les LLM lisent de gauche à droite comme les humains.</label>
+                            <label><input type="radio" name="q1" value="b"> b) Parce que le mécanisme d'attention donne plus de poids aux mots récents et à leurs relations.</label>
+                            <label><input type="radio" name="q1" value="c"> c) Parce que les LLM sont programmés pour suivre la grammaire humaine.</label>
+                        </div>
+                    </div>
+                    <div class="quiz-question">
+                        <p>2. Que représente un embedding dans un LLM ?</p>
+                        <div class="quiz-options">
+                            <label><input type="radio" name="q2" value="a"> a) Une image du mot.</label>
+                            <label><input type="radio" name="q2" value="b"> b) Un vecteur numérique captant le sens du mot dans un espace mathématique.</label>
+                            <label><input type="radio" name="q2" value="c"> c) Une traduction du mot dans une autre langue.</label>
+                        </div>
+                    </div>
+                    <button type="submit">Valider mes réponses</button>
+                </form>
+                <div id="quiz-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== GAMIFICATION : Badges et Progrès =====
+        // Charger les badges depuis localStorage
+        function loadBadges() {
+            const badges = JSON.parse(localStorage.getItem("badges")) || [];
+            const container = document.getElementById("user-badges");
+            container.innerHTML = badges.length > 0
+                ? badges.map(badge => `<span class="badge">${badge}</span>`).join("")
+                : "<p>Aucun badge encore débloqué.</p>";
+        }
+
+        // Débloquer un badge
+        function unlockBadge(badgeName) {
+            let badges = JSON.parse(localStorage.getItem("badges")) || [];
+            if (!badges.includes(badgeName)) {
+                badges.push(badgeName);
+                localStorage.setItem("badges", JSON.stringify(badges));
+                loadBadges();
+                return true; // Badge débloqué
+            }
+            return false; // Badge déjà déverrouillé
+        }
+
+        // Mettre à jour le progrès
+        function updateProgress(percentage) {
+            const progressBar = document.getElementById("module-progress");
+            const progressText = document.getElementById("progress-text");
+            progressBar.value = percentage;
+            progressText.textContent = `${percentage}% complété`;
+            localStorage.setItem("module1-progress", percentage);
+        }
+
+        // Charger le progrès
+        function loadProgress() {
+            const savedProgress = localStorage.getItem("module1-progress");
+            if (savedProgress) {
+                updateProgress(parseInt(savedProgress));
+            }
+        }
+
+        // ===== VISUALISATION : Embeddings 2D =====
+        function generateEmbeddingVisualization() {
+            // Nettoyer la visualisation précédente
+            d3.select("#embedding-visualization").html("");
+
+            // Données simulées : mots et leurs embeddings 2D
+            const words = ["roi", "reine", "château", "chien", "chat"];
+            
+            // Générer des embeddings 2D aléatoires mais cohérents
+            // roi, reine, château sont proches (thème royal)
+            // chien, chat sont proches (thème animaux)
+            const embeddings = {
+                "roi": { x: 10, y: 10 },
+                "reine": { x: 15, y: 12 },
+                "château": { x: 12, y: 8 },
+                "chien": { x: 50, y: 50 },
+                "chat": { x: 55, y: 48 }
+            };
+
+            // Créer le conteneur SVG
+            const svg = d3.select("#embedding-visualization")
+                .append("svg")
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .attr("viewBox", "0 0 100 100")
+                .attr("preserveAspectRatio", "xMidYMid meet");
+
+            // Ajouter des axes pour référence
+            svg.append("line")
+                .attr("x1", 0).attr("y1", 50)
+                .attr("x2", 100).attr("y2", 50)
+                .attr("stroke", "#444").attr("stroke-width", 0.5);
+            svg.append("line")
+                .attr("x1", 50).attr("y1", 0)
+                .attr("x2", 50).attr("y2", 100)
+                .attr("stroke", "#444").attr("stroke-width", 0.5);
+
+            // Dessiner les points (embeddings)
+            const points = svg.selectAll(".embedding-point")
+                .data(words)
+                .enter()
+                .append("g")
+                .attr("class", "embedding-point")
+                .attr("transform", d => `translate(${embeddings[d].x}, ${embeddings[d].y})`);
+
+            // Cercles pour les embeddings
+            points.append("circle")
+                .attr("r", 5)
+                .attr("fill", "var(--primary)")
+                .attr("stroke", "white")
+                .attr("stroke-width", 1);
+
+            // Étiquettes pour les mots
+            points.append("text")
+                .text(d => d)
+                .attr("x", 8)
+                .attr("y", -3)
+                .attr("fill", "white")
+                .attr("font-size", "12px")
+                .attr("font-family", "sans-serif");
+
+            // Dessiner des lignes entre les embeddings proches (simulant les relations)
+            // Connexions pour le thème royal
+            svg.append("line")
+                .attr("x1", embeddings["roi"].x)
+                .attr("y1", embeddings["roi"].y)
+                .attr("x2", embeddings["reine"].x)
+                .attr("y2", embeddings["reine"].y)
+                .attr("stroke", "var(--success)")
+                .attr("stroke-width", 1)
+                .attr("stroke-dasharray", "3,3");
+
+            svg.append("line")
+                .attr("x1", embeddings["roi"].x)
+                .attr("y1", embeddings["roi"].y)
+                .attr("x2", embeddings["château"].x)
+                .attr("y2", embeddings["château"].y)
+                .attr("stroke", "var(--success)")
+                .attr("stroke-width", 1)
+                .attr("stroke-dasharray", "3,3");
+
+            svg.append("line")
+                .attr("x1", embeddings["reine"].x)
+                .attr("y1", embeddings["reine"].y)
+                .attr("x2", embeddings["château"].x)
+                .attr("y2", embeddings["château"].y)
+                .attr("stroke", "var(--success)")
+                .attr("stroke-width", 1)
+                .attr("stroke-dasharray", "3,3");
+
+            // Connexions pour le thème animaux
+            svg.append("line")
+                .attr("x1", embeddings["chien"].x)
+                .attr("y1", embeddings["chien"].y)
+                .attr("x2", embeddings["chat"].x)
+                .attr("y2", embeddings["chat"].y)
+                .attr("stroke", "var(--danger)")
+                .attr("stroke-width", 1)
+                .attr("stroke-dasharray", "3,3");
+
+            // Ajouter une légende
+            svg.append("text")
+                .text("Thème Royal")
+                .attr("x", 15)
+                .attr("y", 5)
+                .attr("fill", "var(--success)")
+                .attr("font-size", "10px")
+                .attr("font-family", "sans-serif");
+
+            svg.append("text")
+                .text("Thème Animaux")
+                .attr("x", 55)
+                .attr("y", 45)
+                .attr("fill", "var(--danger)")
+                .attr("font-size", "10px")
+                .attr("font-family", "sans-serif");
+
+            // Débloquer le badge de visualisation
+            unlockBadge("📊 Visualisateur d'Embeddings");
+            updateProgress(50);
+        }
+
+        // ===== QUIZ : Gestion des réponses =====
+        function validateQuiz() {
+            // Empêcher le comportement par défaut du formulaire
+            event.preventDefault();
+
+            // Récupérer les réponses
+            const q1 = document.querySelector('input[name="q1"]:checked');
+            const q2 = document.querySelector('input[name="q2"]:checked');
+
+            // Vérifier que toutes les questions ont été répondues
+            if (!q1 || !q2) {
+                document.getElementById("quiz-results").innerHTML = 
+                    '<div class="quiz-result danger">Veuillez répondre à toutes les questions !</div>';
+                return;
+            }
+
+            // Réponses correctes
+            const correctAnswers = {
+                q1: "b", // b) Parce que le mécanisme d'attention donne plus de poids aux mots récents et à leurs relations.
+                q2: "b"  // b) Un vecteur numérique captant le sens du mot dans un espace mathématique.
+            };
+
+            // Compter les bonnes réponses
+            let score = 0;
+            if (q1.value === correctAnswers.q1) score++;
+            if (q2.value === correctAnswers.q2) score++;
+
+            // Afficher les résultats
+            const resultsDiv = document.getElementById("quiz-results");
+            
+            if (score === 2) {
+                resultsDiv.innerHTML = 
+                    '<div class="quiz-result success">Félicitations ! Vous avez répondu correctement à toutes les questions !</div>';
+                unlockBadge("🧠 Expert en LLM");
+                updateProgress(100);
+            } else if (score === 1) {
+                resultsDiv.innerHTML = 
+                    '<div class="quiz-result success">Bien ! Vous avez 1 bonne réponse sur 2.</div>';
+                updateProgress(75);
+            } else {
+                resultsDiv.innerHTML = 
+                    '<div class="quiz-result danger">Dommage ! Vous avez 0 bonne réponse. Réessayez !</div>';
+            }
+
+            // Débloquer le badge de participation au quiz
+            unlockBadge("❓ Participant au Quiz");
+        }
+
+        // ===== INITIALISATION =====
+        document.addEventListener("DOMContentLoaded", function() {
+            // Charger les badges et le progrès
+            loadBadges();
+            loadProgress();
+
+            // Attacher l'événement de soumission du quiz
+            document.getElementById("quiz-form").addEventListener("submit", validateQuiz);
+
+            // Marquer la théorie comme lue (progrès à 25%)
+            updateProgress(25);
+        });
+    </script>
+</body>
+</html>
