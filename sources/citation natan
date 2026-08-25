@@ -1,0 +1,312 @@
+# Citations de sensibilisation
+
+*Chaque phrase est construite sur deux ou trois termes du lexique NATAN. Format prévu pour une slide, un visuel, une ouverture ou une clôture de prise de parole.*
+
+*Les termes mobilisés sont indiqués sous chaque citation, pour le renvoi au lexique.*
+
+---
+
+## Sur la valeur et le tri
+
+**« Le menu de la cantine et le projet de rachat dorment dans le même dossier. Voilà le vrai sujet. »**
+*Classification, patrimoine informationnel*
+
+**« Cartographier tout, personne n'y arrive. Trier les 10 %, tout le monde peut. »**
+*Les 10 %, classification*
+
+**« Sans classification, pas de secret des affaires. Le marquage n'est pas une bonne pratique : c'est la condition du recours. »**
+*Classification, secret des affaires*
+
+**« Une fuite de vingt millions de données personnelles fait la une. Une feuille de route produit qui part ne fait aucun bruit, et coûte plus cher. »**
+*Patrimoine informationnel, donnée durable*
+
+---
+
+## Sur ce qui ne se répare pas
+
+**« Un mot de passe se change en trente secondes. Une date de naissance, jamais. »**
+*Donnée durable, exfiltration*
+
+**« On ne révoque pas une adresse. On ne révoque pas un nom. La donnée durable ne se répare pas, elle se périme. »**
+*Donnée durable, révocation*
+
+**« Un portefeuille volé laisse une veste arrachée. Un portefeuille numérique ne laisse rien, jusqu'au jour où quelqu'un sonne à la porte. »**
+*Exfiltration, donnée durable*
+
+---
+
+## Sur le tiers
+
+**« On ne se fait pas attaquer. On se fait traverser. »**
+*Attaque par la chaîne d'approvisionnement, tiers habilité*
+
+**« Le coffre était bien fermé. Le prestataire avait la clé. »**
+*Chaîne d'approvisionnement, clause d'audit*
+
+**« Vous n'êtes pas seulement une cible. Vous êtes le fournisseur de quelqu'un. »**
+*Chaîne d'approvisionnement, matrice de conformité*
+
+**« On a tous un trousseau de clés qui ouvre ailleurs que chez soi. »**
+*Chaîne d'approvisionnement, privilège excessif*
+
+---
+
+## Sur ce que personne ne voit
+
+**« Protéger une donnée parce que personne ne sait qu'elle existe, c'est fermer à clé une porte dans un mur qui n'existe pas. »**
+*Protection par l'ignorance, classification*
+
+**« L'ignorance a longtemps fait office de serrure. Un agent ne connaît pas l'ignorance. »**
+*Protection par l'ignorance, identité non humaine*
+
+**« Personne n'a voulu cette permission. Personne ne l'a supprimée. Personne ne la voit. »**
+*Permission héritée, privilège excessif*
+
+**« Neuf accès jamais utilisés depuis un an, ce ne sont pas des droits. Ce sont des portes qu'on a oublié de fermer. »**
+*Privilège excessif, durcissement*
+
+**« On pense à effacer le téléphone volé. On ne pense jamais à révoquer son certificat. L'attaquant, lui, y pense. »**
+*Certificat, révocation*
+
+---
+
+## Sur les agents
+
+**« Brancher un agent, ce n'est pas installer un outil. C'est embaucher quelqu'un. Reste à savoir ce qu'il a le droit d'ouvrir. »**
+*Identité non humaine, privilège excessif*
+
+**« Une identité non humaine, c'est un collaborateur qui ne dort jamais et que personne ne débriefe le vendredi soir. »**
+*Identité non humaine, surface d'attaque*
+
+**« Ce qu'un collaborateur mettait dix ans à découvrir, un agent le trouve en cinq minutes. »**
+*Identité non humaine, protection par l'ignorance*
+
+---
+
+## Sur le croisement
+
+**« Une liste de fuites, c'est un constat. Le chemin qui les relie, c'est un plan. »**
+*Graphe contre liste, chemin d'attaque*
+
+**« Trois fichiers pris séparément ne disent rien. Posés côte à côte, ils donnent une adresse, un revenu, et quinze jours d'absence. »**
+*Graphe contre liste, donnée durable*
+
+**« Une information, ça se lit. Un renseignement, ça se décide. Entre les deux, il y a le contexte. »**
+*Information et renseignement, CTI*
+
+---
+
+## Sur la conformité
+
+**« La conformité prouve qu'on savait. Elle ne prouve jamais qu'on a fait. »**
+*Conformité de papier, remédiation*
+
+**« Un audit qui produit un document est un audit raté. Un audit qui produit une permission retirée est un audit réussi. »**
+*Conformité de papier, durcissement*
+
+**« Un renseignement hors sol ne sert à rien. Une conformité hors sol non plus. »**
+*CTI, conformité de papier*
+
+**« Ce n'est pas la CNIL qui posera la question. C'est votre client. Ou le client de votre client. »**
+*Matrice de conformité, chaîne d'approvisionnement*
+
+---
+
+## Sur le Shadow IA
+
+**« Le Shadow IA n'est pas une faute. C'est quelqu'un qui essaie de mieux faire son travail avec ce qu'on ne lui a pas donné. »**
+*Shadow IA, classification*
+
+**« Quand l'outil officiel est plus lent que l'onglet déjà ouvert, ce n'est pas l'utilisateur qui a un problème. »**
+*Shadow IA, surface d'attaque*
+
+---
+
+## Sur le temps
+
+**« L'attaquant met trois minutes. La détection met douze mois. »**
+*Détection et prévention, chemin d'attaque*
+
+**« Un dossier se conserve dix ans. Une donnée interceptée aujourd'hui sera lisible avant la fin de ce délai. Le coffre n'est pas ouvert : il est en salle d'attente. »**
+*Harvest now decrypt later, Q-Day*
+
+**« Le défenseur pense en trimestres. L'attaquant pense en années. »**
+*Prépositionnement, living off the land*
+
+---
+
+## Sur la souveraineté
+
+**« La souveraineté, ce n'est pas l'origine de l'outil. C'est savoir ce qu'il fait, qui y accède, et si on peut l'arrêter. »**
+*Souveraineté comme maîtrise opérationnelle, kill switch*
+
+**« Un drapeau ne rassure personne. Un arbitrage informé, si. »**
+*Arbitrage informé, souveraineté comme moyen*
+
+**« La question n'est pas de savoir si votre outil peut tomber. C'est de savoir si quelqu'un peut décider que vous n'y avez plus droit. »**
+*Kill switch, scénario inverse*
+
+**« Se demander comment on ferait sans, ça ne coûte rien. C'est même la seule chose qui ne coûte rien. »**
+*Scénario inverse, cryptoagilité*
+
+---
+
+## Sur la posture
+
+**« Ce n'est pas une crise de confiance. C'est pire : c'est une résignation. »**
+*Résignation numérique, atteinte à l'image*
+
+**« La donnée ne nous appartient pas. Elle nous est confiée. »**
+*Patrimoine informationnel, secret des affaires*
+
+**« Ce qui distinguera les cabinets, ce ne sera pas ceux qui n'ont rien eu. Ce sera ceux qui savent ce qu'ils ont fermé. »**
+*Durcissement, remédiation*
+
+---
+
+## Sur le graphe
+
+**« Un expert-comptable pense déjà en graphe. Chaque écriture relie deux comptes. Il reste à appliquer le même réflexe aux accès. »**
+*Graphe contre liste, identité*
+
+**« Le grand livre est une liste. Le flux entre les comptes est un graphe. Un attaquant ne lit que le flux. »**
+*Graphe contre liste, chemin d'attaque*
+
+**« Un bilan photographie. Un graphe raconte. On n'entre jamais par une photographie. »**
+*Graphe contre liste, surface d'attaque*
+
+**« Chercher une faille, c'est lire une ligne. Chercher un chemin, c'est lire ce qui relie deux lignes. »**
+*Chemin d'attaque, graphe contre liste*
+
+**« On inventorie ce qu'on possède. On n'inventorie jamais ce qui relie ce qu'on possède. C'est précisément par là qu'on entre. »**
+*Graphe contre liste, permission héritée*
+
+**« Une faille isolée est un incident. Deux failles reliées sont une porte. »**
+*Chemin d'attaque, goulet d'étranglement*
+
+**« Vous n'avez pas un problème d'accès. Vous avez un problème de relations entre les accès. »**
+*Privilège excessif, graphe contre liste*
+
+**« Une seule permission bien choisie peut fermer des millions de chemins. Encore faut-il accepter de la couper. »**
+*Goulet d'étranglement, durcissement*
+
+---
+
+## Sur la chaîne de responsabilité
+
+**« On peut sous-traiter un traitement. On ne sous-traite pas une responsabilité. »**
+*Chaîne d'approvisionnement, clause d'audit*
+
+**« Le prestataire répond de ce qu'il fait. Vous répondez de l'avoir choisi. »**
+*Matrice de conformité, chaîne d'approvisionnement*
+
+**« La donnée sort du cabinet en une seconde. La responsabilité, elle, ne sort jamais. »**
+*Exfiltration, patrimoine informationnel*
+
+**« L'attestation de vigilance existe pour les cotisations. Elle n'existe pas pour les accès. »**
+*Chaîne d'approvisionnement, clause d'audit*
+
+**« Vous connaissez vos fournisseurs. Connaissez-vous les fournisseurs de vos fournisseurs ? L'attaquant commence par là. »**
+*Chaîne d'approvisionnement, tiers habilité*
+
+**« Une chaîne ne cède pas à l'endroit le plus lourd. Elle cède à l'endroit le plus mince, et c'est rarement chez vous. »**
+*Effet de cascade, chaîne d'approvisionnement*
+
+**« Le maillon faible n'est jamais celui qu'on surveille. C'est par définition celui qu'on n'a pas compté dans la chaîne. »**
+*Chaîne d'approvisionnement, protection par l'ignorance*
+
+**« Entre la fuite et le crédit souscrit à votre nom, il y a six mois et quatre intermédiaires. Aucun des quatre ne se sent concerné. »**
+*Donnée durable, chaîne d'approvisionnement*
+
+**« La fuite a un auteur. Le préjudice a une victime. Entre les deux, la chaîne est vide. »**
+*Exfiltration, résignation numérique*
+
+**« Chaque accès accordé est une signature. On ne les relit jamais. »**
+*Privilège excessif, permission héritée*
+
+---
+
+## Sur le faisceau d'indices
+
+**« Aucun indice ne prouve. C'est l'accumulation qui emporte la conviction. En droit fiscal on appelle ça un faisceau, en cyber on appelle ça une attaque. »**
+*Attribution, chemin d'attaque*
+
+**« Un mot de passe échangé par courriel ne prouve rien. Une double authentification facultative ne prouve rien. Ensemble, ils ouvrent un ministère. »**
+*Attribution, authentification multifacteur*
+
+**« Le faisceau d'indices, vous le pratiquez à chaque contrôle. L'attaquant le pratique sur vous. »**
+*Attribution, OSINT*
+
+**« Méfiez-vous de l'indice qui saute aux yeux. Les vrais faisceaux se construisent avec ce que personne n'a relevé. »**
+*Attribution, OPSEC*
+
+**« Trois anomalies isolées, on classe sans suite. Trois anomalies datées et reliées, on ouvre un dossier. »**
+*Attribution, CTI*
+
+**« Ce qui vaut pour un redressement vaut pour une intrusion : personne n'est convaincu par une pièce, tout le monde l'est par un ensemble. »**
+*Attribution, information et renseignement*
+
+**« Personne ne se réveille cybercriminel du jour au lendemain. Les traces précèdent toujours l'intention. »**
+*Empreinte numérique, OPSEC*
+
+**« Une information isolée ne permet aucune décision. C'est le contexte qui transforme un détail en preuve. »**
+*Information et renseignement, CTI*
+
+---
+
+## Les trois ensemble
+
+**« Le graphe montre le chemin. Le faisceau désigne l'auteur. La chaîne dit qui paie. »**
+*Graphe contre liste, attribution, chaîne d'approvisionnement*
+
+---
+
+## Sur la cryptoagilité
+
+**« La cryptoagilité, ce n'est pas de la cryptographie. C'est la capacité de changer d'avis sans tout démolir. »**
+*Cryptoagilité, cryptographie post-quantique*
+
+**« On ne signe pas un bail sans clause de sortie. On installe pourtant des systèmes dont on ne sait pas comment sortir. »**
+*Cryptoagilité, arbitrage informé*
+
+**« Un choix technique irréversible n'est pas un choix. C'est un engagement à durée indéterminée. »**
+*Cryptoagilité, kill switch*
+
+**« La bonne question n'est pas de savoir si ça fonctionne aujourd'hui. C'est de savoir ce que coûtera d'en changer. »**
+*Cryptoagilité, scénario inverse*
+
+**« Changer de logiciel de production vous a coûté deux ans. Changer d'algorithme coûtera davantage, et vous n'aurez pas choisi la date. »**
+*Cryptoagilité, Q-Day*
+
+**« L'attaquant n'a pas besoin de savoir lire. Il a seulement besoin de savoir attendre. »**
+*Harvest now decrypt later, prépositionnement*
+
+**« On chiffre pour aujourd'hui. On est déchiffré demain. Entre les deux, la donnée n'a pas bougé d'un mot. »**
+*Harvest now decrypt later, donnée durable*
+
+**« Ce qui est illisible aujourd'hui ne le restera pas. Les archives, elles, ne changent pas de contenu. »**
+*Q-Day, donnée durable*
+
+**« Un dossier se conserve dix ans. La cryptographie qui le protège n'a pas dix ans devant elle. »**
+*Q-Day, cryptographie post-quantique*
+
+**« On ne migre pas ce qu'on n'a pas inventorié. La cryptoagilité commence par une liste, pas par un algorithme. »**
+*Cryptoagilité, classification*
+
+**« Avant de savoir changer de serrure, il faut savoir combien on a de portes. »**
+*Cryptoagilité, certificat*
+
+**« Provisionner un risque dont on ignore la date, vous savez faire depuis trente ans. C'est exactement ce qu'on vous demande ici. »**
+*Q-Day, cryptoagilité*
+
+**« La résilience, ce n'est pas tenir. C'est pouvoir changer. »**
+*Cryptoagilité, souveraineté comme moyen*
+
+**« Agile sur la cryptographie ou agile sur le fournisseur, c'est le même geste : ne jamais dépendre d'un choix qu'on ne peut pas défaire. »**
+*Cryptoagilité, arbitrage informé*
+
+---
+
+## Note d'usage
+
+Aucune de ces phrases n'est une citation d'intervenant. Ce sont des formulations NATAN construites à partir du lexique. Deux points de vigilance si elles sont reprises hors contexte : l'opposition entre le graphe et la liste circule dans le secteur et s'attribue à un responsable du renseignement sur les menaces chez Microsoft, et l'image du menu de la cantine vient d'une table ronde. Les versions ci-dessus en sont des reformulations, pas des reprises.
