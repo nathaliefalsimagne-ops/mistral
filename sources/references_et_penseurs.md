@@ -118,6 +118,9 @@ Chaque entrée ci-dessous est une **citation directe** extraite de la transcript
 **Contexte exact** :
 > Parlons de **Warren Buffett**. Donc **Warren Buffett**, c'est un investisseur, un businessman, un philanthrophe américain. Donc lui, il a dit que les **data moats**, donc les fossés de données, sont les nouveaux remparts concurrentiels. Donc lui, il a dit que **les données, c'est le nouveau pétrole**.
 
+**Autre citation exacte** :
+> ça a été ça a été industrialisé le terme par **Warren Buffet**, mais en gros, c'est un avantage structurel durable
+
 ---
 
 ### 16. Maamar
