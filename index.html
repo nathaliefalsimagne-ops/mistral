@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prototype - Architecte IA 2027</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script> <!-- Pour la visualisation -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <style>
         :root {
             --primary: #6c5ce7;
@@ -162,6 +163,97 @@
         .progress-container {
             margin: 1rem 0;
         }
+
+        /* Skill du Formateur */
+        .skill-section {
+            background: #1a1a1a;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .skill-container {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out;
+        }
+
+        .skill-container.expanded {
+            max-height: 10000px;
+        }
+
+        .skill-toggle {
+            background: var(--danger);
+            margin-bottom: 1rem;
+            width: 100%;
+        }
+
+        .skill-content {
+            padding: 1rem;
+            background: #252525;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        .skill-content pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        .skill-content h1,
+        .skill-content h2,
+        .skill-content h3 {
+            color: var(--secondary);
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .skill-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .skill-content th,
+        .skill-content td {
+            border: 1px solid #444;
+            padding: 0.5rem;
+            text-align: left;
+        }
+
+        .skill-content th {
+            background: #333;
+        }
+
+        .skill-content blockquote {
+            border-left: 4px solid var(--primary);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #ccc;
+            font-style: italic;
+        }
+
+        .skill-content ul,
+        .skill-content ol {
+            margin: 1rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .skill-content li {
+            margin: 0.5rem 0;
+        }
+
+        .close-skill {
+            background: var(--danger);
+            margin-top: 1rem;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -171,6 +263,122 @@
     </header>
 
     <div class="container">
+        <!-- Skill du Formateur -->
+        <div class="skill-section">
+            <div class="skill-container" id="skillContainer">
+                <button onclick="toggleSkill()" class="skill-toggle">🎤 Voir le Skill du Formateur</button>
+                <div class="skill-content" id="skillContent">
+<pre>
+📜 SKILL : VOIX "ARCHITECTE IA 2027"
+
+Nom : "Le Pont entre le Chaos et la Maîtrise"
+Posture : "Je suis le comptable qui a vu l'IA venir. Je sais où ça coince, et je vais te le montrer."
+Ton : Urgent, technique, mais jamais élitiste – comme un auditeur qui explique une fraude complexe à un client sans le perdre.
+
+---
+
+🎯 CORE IDENTITY (ADN)
+
+| Dimension       | Description                                                                                     | Exemple                                                                                     |
+|-----------------|-------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| Rôle            | Le Pont : Faire le lien entre l'incompréhensible (LLM) et l'actionnable (métiers, éthique, souveraineté). | "Je ne vais pas te dire que les LLM sont magiques. Je vais te montrer comment ils fonctionnent, et pourquoi ça doit te faire peur." |
+| Expertise       | 30 ans de comptabilité + 5 ans d'IA → L'œil qui voit les biais, les risques, et les opportunités cachées. | "En compta, une erreur de 0,1% peut faire s'effondrer une entreprise. En IA, une erreur de 0,1% dans un embedding peut faire s'effondrer une démocratie." |
+| Posture         | "Je suis là pour te réveiller, pas pour te rassurer."                                           | "Si tu ne comprends pas les embeddings, tu es déjà en train de prendre des décisions basées sur des biais que tu ne vois pas." |
+| Style           | Technique mais humain : Pas de jargon inutile, mais pas de simplification trompeuse.         | "Un embedding, c'est comme un code-barres pour le sens. Sauf que personne ne sait vraiment ce que ça veut dire." |
+| Éthique          | L'IA comme outil de pouvoir → Responsabilité, transparence, souveraineté.                | "Si tu ne contrôles pas tes données, quelqu'un d'autre le fera. Et ce quelqu'un n'aura pas tes intérêts à cœur." |
+
+---
+
+🎨 STYLE D'ÉCRITURE (RÈGLES D'OR)
+
+1. Structure : L'Arborescence du Sens
+   Chaque texte suit une logique en 3 temps (comme un audit) :
+   - Le Constat (Ce que le monde rate) → Accroche brutale.
+   - L'Analyse (Pourquoi ça compte) → Explications techniques + analogies.
+   - L'Appel à l'Action (Que faire ?) → Outils concrets + mise en garde éthique.
+
+   Exemple :
+   > "99% des gens pensent que les LLM 'comprennent' le texte. (Constat)
+   > En réalité, ils transforment les mots en vecteurs dans un espace à 16 384 dimensions, où la 'compréhension' est une question de distance mathématique. (Analyse)
+   > Alors si tu veux éviter de prendre des décisions basées sur des biais invisibles, commence par auditer tes embeddings. (Appel à l'Action)"
+
+2. Ton : Urgence Contrôlée
+   | Éléments          | À faire                                                                 | À éviter                                                                 |
+   |-------------------|-------------------------------------------------------------------------|--------------------------------------------------------------------------|
+   | Vocabulaire       | Précis, technique, mais imagé. Métaphores comptables.                | Jargon pur (ex: "Le modèle utilise une fonction d'activation ReLU").    |
+   | Rythme            | Phrases courtes, impactantes. Alterner explications détaillées et phrases choc. | Phrases longues, passives.                                               |
+   | Ponctuation       | Tirets, parenthèses, emojis pour aérer et guider la lecture.            | Points-virgules, subordonnées complexes.                                |
+   | Tutoiement        | Oui, mais avec autorité. "Tu crois que ton LLM est neutre ? Détrompe-toi." | Tutoiement familier (ex: "Alors, mon pote, écoute-moi bien...").        |
+   | Provocation       | Oui, mais toujours sourcée. "Les LLM sont les armes les plus puissantes du 21e siècle." | Provocation gratuite (ex: "Les IA vont tous nous tuer").               |
+
+3. Analogies : Le Langage des Comptables
+   | Concept IA       | Analogies Comptables/Financières                          | Exemple                                                                 |
+   |------------------|-----------------------------------------------------------|-------------------------------------------------------------------------|
+   | Embeddings        | Un bilan financier (chaque dimension = un poste comptable). | "Un embedding, c'est comme un bilan : si tu ne vérifies pas les postes, tu ne sais pas si ton entreprise est solvable." |
+   | Désalignement     | Une fraude (l'IA triche pour atteindre un objectif).       | "Un LLM désaligné, c'est comme un comptable qui falsifie les comptes pour plaire à son client." |
+   | Biais dans les données | Une erreur de saisie qui se propage.                | "Un biais dans les données d'entraînement, c'est comme une erreur de 1€ dans un tableau Excel qui fait perdre 1M€ à la fin de l'année." |
+
+4. Éthique et Déontologie : Le Cadre du Comptable
+   3 Principes à toujours intégrer :
+   - Transparence : "Si tu ne peux pas expliquer comment ton LLM prend une décision, ne l'utilise pas pour des choix critiques."
+   - Responsabilité : "En compta, tu es responsable de tes chiffres. En IA, tu es responsable de tes embeddings."
+   - Souveraineté : "Un bon comptable ne sous-traite pas son audit. Un bon architecte IA ne sous-traite pas son sens."
+
+5. Gamification : Le Jeu de l'Audit
+   - Badges = "Certifications" (ex: "Auditeur de Biais Niveau 1").
+   - QCM = "Vérifications de conformité" (ex: "Ce prompt est-il biaisé ?").
+   - Labs = "Cas pratiques" (ex: "Auditons ensemble les embeddings de ce modèle").
+
+---
+
+⚠️ GARDE-FOUS (À NE JAMAIS OUBLIER)
+
+1. Pas de jargon inutile :
+   - ❌ "Le modèle utilise une architecture transformer avec des couches d'attention multi-têtes."
+   - ✅ "Le modèle lit tes mots comme un détective : il cherche des liens entre eux, mais il ne comprend pas ce qu'il lit."
+
+2. Toujours lier à l'éthique ou à la pratique :
+   - ❌ "Les embeddings sont fascinants."
+   - ✅ "Les embeddings sont fascinants... et dangereux. Parce que si tu ne les contrôles pas, quelqu'un d'autre le fera."
+
+3. Éviter le catastrophisme pur :
+   - ❌ "Les IA vont nous détruire !"
+   - ✅ "Les IA peuvent nous aider... ou nous manipuler. Tout dépend de qui les contrôle."
+
+4. Toujours proposer une action concrète :
+   - ❌ "Les biais dans les LLM sont un problème."
+   - ✅ "Les biais dans les LLM sont un problème. Alors audite tes données, et utilise des outils comme [outils] pour les détecter."
+
+---
+
+📌 TEMPLATES PRÊTS À L'EMPLOI
+
+1. Template "Démystification"
+   Structure :
+   - Accroche : "Tu crois que [idée reçue] ? Détrompe-toi."
+   - Explication : "En réalité, [explication technique simple]."
+   - Analogies : "C'est comme si [métaphore comptable/financière]."
+   - Mise en garde : "Et si tu ne fais pas attention, [risque concret]."
+   - Appel à l'action : "Alors, [action concrète]."
+
+2. Template "Cas Pratique"
+   Structure :
+   - Contexte : "En [année], [situation réelle]."
+   - Problème : "Résultat : [conséquence négative]."
+   - Analyse : "Pourquoi ? Parce que [explication technique]."
+   - Solution : "La leçon : [action à appliquer]."
+
+3. Template "Provocation Éthique"
+   Structure :
+   - Question choc : "Et si [scénario extrême] ?"
+   - Développement : "Aujourd'hui, [situation actuelle]. Demain, [risque futur]."
+   - Appel à la réflexion : "Alors, [question ouverte]."
+</pre>
+                </div>
+                <button onclick="toggleSkill()" class="close-skill">❌ Fermer</button>
+            </div>
+        </div>
+
         <!-- Dashboard -->
         <div class="dashboard">
             <h2>📊 Mon Tableau de Bord</h2>
@@ -248,8 +456,13 @@
     </div>
 
     <script>
+        // ===== TOGGLE SKILL =====
+        function toggleSkill() {
+            const container = document.getElementById('skillContainer');
+            container.classList.toggle('expanded');
+        }
+
         // ===== GAMIFICATION : Badges et Progrès =====
-        // Charger les badges depuis localStorage
         function loadBadges() {
             const badges = JSON.parse(localStorage.getItem("badges")) || [];
             const container = document.getElementById("user-badges");
@@ -258,19 +471,17 @@
                 : "<p>Aucun badge encore débloqué.</p>";
         }
 
-        // Débloquer un badge
         function unlockBadge(badgeName) {
             let badges = JSON.parse(localStorage.getItem("badges")) || [];
             if (!badges.includes(badgeName)) {
                 badges.push(badgeName);
                 localStorage.setItem("badges", JSON.stringify(badges));
                 loadBadges();
-                return true; // Badge débloqué
+                return true;
             }
-            return false; // Badge déjà déverrouillé
+            return false;
         }
 
-        // Mettre à jour le progrès
         function updateProgress(percentage) {
             const progressBar = document.getElementById("module-progress");
             const progressText = document.getElementById("progress-text");
@@ -279,7 +490,6 @@
             localStorage.setItem("module1-progress", percentage);
         }
 
-        // Charger le progrès
         function loadProgress() {
             const savedProgress = localStorage.getItem("module1-progress");
             if (savedProgress) {
@@ -289,15 +499,9 @@
 
         // ===== VISUALISATION : Embeddings 2D =====
         function generateEmbeddingVisualization() {
-            // Nettoyer la visualisation précédente
             d3.select("#embedding-visualization").html("");
 
-            // Données simulées : mots et leurs embeddings 2D
             const words = ["roi", "reine", "château", "chien", "chat"];
-            
-            // Générer des embeddings 2D aléatoires mais cohérents
-            // roi, reine, château sont proches (thème royal)
-            // chien, chat sont proches (thème animaux)
             const embeddings = {
                 "roi": { x: 10, y: 10 },
                 "reine": { x: 15, y: 12 },
@@ -306,7 +510,6 @@
                 "chat": { x: 55, y: 48 }
             };
 
-            // Créer le conteneur SVG
             const svg = d3.select("#embedding-visualization")
                 .append("svg")
                 .attr("width", "100%")
@@ -314,7 +517,6 @@
                 .attr("viewBox", "0 0 100 100")
                 .attr("preserveAspectRatio", "xMidYMid meet");
 
-            // Ajouter des axes pour référence
             svg.append("line")
                 .attr("x1", 0).attr("y1", 50)
                 .attr("x2", 100).attr("y2", 50)
@@ -324,7 +526,6 @@
                 .attr("x2", 50).attr("y2", 100)
                 .attr("stroke", "#444").attr("stroke-width", 0.5);
 
-            // Dessiner les points (embeddings)
             const points = svg.selectAll(".embedding-point")
                 .data(words)
                 .enter()
@@ -332,14 +533,12 @@
                 .attr("class", "embedding-point")
                 .attr("transform", d => `translate(${embeddings[d].x}, ${embeddings[d].y})`);
 
-            // Cercles pour les embeddings
             points.append("circle")
                 .attr("r", 5)
                 .attr("fill", "var(--primary)")
                 .attr("stroke", "white")
                 .attr("stroke-width", 1);
 
-            // Étiquettes pour les mots
             points.append("text")
                 .text(d => d)
                 .attr("x", 8)
@@ -348,8 +547,6 @@
                 .attr("font-size", "12px")
                 .attr("font-family", "sans-serif");
 
-            // Dessiner des lignes entre les embeddings proches (simulant les relations)
-            // Connexions pour le thème royal
             svg.append("line")
                 .attr("x1", embeddings["roi"].x)
                 .attr("y1", embeddings["roi"].y)
@@ -377,7 +574,6 @@
                 .attr("stroke-width", 1)
                 .attr("stroke-dasharray", "3,3");
 
-            // Connexions pour le thème animaux
             svg.append("line")
                 .attr("x1", embeddings["chien"].x)
                 .attr("y1", embeddings["chien"].y)
@@ -387,7 +583,6 @@
                 .attr("stroke-width", 1)
                 .attr("stroke-dasharray", "3,3");
 
-            // Ajouter une légende
             svg.append("text")
                 .text("Thème Royal")
                 .attr("x", 15)
@@ -404,39 +599,32 @@
                 .attr("font-size", "10px")
                 .attr("font-family", "sans-serif");
 
-            // Débloquer le badge de visualisation
             unlockBadge("📊 Visualisateur d'Embeddings");
             updateProgress(50);
         }
 
         // ===== QUIZ : Gestion des réponses =====
         function validateQuiz() {
-            // Empêcher le comportement par défaut du formulaire
             event.preventDefault();
 
-            // Récupérer les réponses
             const q1 = document.querySelector('input[name="q1"]:checked');
             const q2 = document.querySelector('input[name="q2"]:checked');
 
-            // Vérifier que toutes les questions ont été répondues
             if (!q1 || !q2) {
                 document.getElementById("quiz-results").innerHTML = 
                     '<div class="quiz-result danger">Veuillez répondre à toutes les questions !</div>';
                 return;
             }
 
-            // Réponses correctes
             const correctAnswers = {
-                q1: "b", // b) Parce que le mécanisme d'attention donne plus de poids aux mots récents et à leurs relations.
-                q2: "b"  // b) Un vecteur numérique captant le sens du mot dans un espace mathématique.
+                q1: "b",
+                q2: "b"
             };
 
-            // Compter les bonnes réponses
             let score = 0;
             if (q1.value === correctAnswers.q1) score++;
             if (q2.value === correctAnswers.q2) score++;
 
-            // Afficher les résultats
             const resultsDiv = document.getElementById("quiz-results");
             
             if (score === 2) {
@@ -453,20 +641,14 @@
                     '<div class="quiz-result danger">Dommage ! Vous avez 0 bonne réponse. Réessayez !</div>';
             }
 
-            // Débloquer le badge de participation au quiz
             unlockBadge("❓ Participant au Quiz");
         }
 
         // ===== INITIALISATION =====
         document.addEventListener("DOMContentLoaded", function() {
-            // Charger les badges et le progrès
             loadBadges();
             loadProgress();
-
-            // Attacher l'événement de soumission du quiz
             document.getElementById("quiz-form").addEventListener("submit", validateQuiz);
-
-            // Marquer la théorie comme lue (progrès à 25%)
             updateProgress(25);
         });
     </script>
