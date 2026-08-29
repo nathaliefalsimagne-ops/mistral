@@ -1,10 +1,10 @@
 const { createRoot } = require('react-dom/client');
 const React = require('react');
 const { StrictMode } = React;
-const App = require('./src/App').default;
+const App = require('./app/src/App').default;
 
 // Charger les styles
-require('./src/index.css');
+require('./app/src/index.css');
 
 // Point d'entrée de l'application
 const container = document.getElementById('root');
