@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
-const { Database } = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const readline = require('readline');
 
 class MigrationScript {
@@ -24,6 +24,7 @@ class MigrationScript {
     };
     
     this.db = null;
+    this.Database = sqlite3.Database;
     this.results = {
       imported: 0,
       skipped: 0,
@@ -43,7 +44,7 @@ class MigrationScript {
       }
       
       // Ouvrir la base de données
-      this.db = new Database(this.config.dbPath);
+      this.db = new this.Database(this.config.dbPath);
       
       // Activer les foreign keys
       this.db.pragma('foreign_keys = ON');
@@ -717,7 +718,7 @@ class MigrationScript {
         throw new Error(`Base de données introuvable: ${sourceDbPath}`);
       }
 
-      const sourceDb = new Database(sourceDbPath);
+      const sourceDb = new this.Database(sourceDbPath);
       
       // Copier les données table par table
       const tables = ['media_types', 'media_states', 'person_types', 'location_types', 

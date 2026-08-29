@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { Database } = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const os = require('os');
 
 class ExternalSyncScript {
@@ -24,6 +24,7 @@ class ExternalSyncScript {
     };
     
     this.db = null;
+    this.Database = sqlite3.Database;
     this.drives = [];
   }
 
@@ -39,7 +40,7 @@ class ExternalSyncScript {
     }
     
     // Ouvrir la base de données
-    this.db = new Database(this.config.dbPath);
+    this.db = new this.Database(this.config.dbPath);
     this.db.pragma('foreign_keys = ON');
     
     console.log('✅ Service de synchronisation initialisé');
@@ -389,7 +390,7 @@ class ExternalSyncScript {
       
       // Réouvrir la base de données
       this.db.close();
-      this.db = new Database(this.config.dbPath);
+      this.db = new this.Database(this.config.dbPath);
       this.db.pragma('foreign_keys = ON');
       
       // Mettre à jour le log
@@ -409,7 +410,7 @@ class ExternalSyncScript {
       console.error('❌ Erreur lors de la synchronisation depuis le disque externe:', error.message);
       // Réouvrir la base de données locale
       if (!this.db) {
-        this.db = new Database(this.config.dbPath);
+        this.db = new this.Database(this.config.dbPath);
       }
       throw error;
     }
@@ -423,7 +424,7 @@ class ExternalSyncScript {
     
     try {
       // Ouvrir les deux bases de données
-      const externalDb = new Database(externalDbPath);
+      const externalDb = new this.Database(externalDbPath);
       
       // Obtenir les médias de chaque base
       const localMedia = this.db.prepare('SELECT * FROM media').all();

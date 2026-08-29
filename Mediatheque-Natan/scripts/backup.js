@@ -12,7 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { Database } = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const crypto = require('crypto');
 
 class BackupScript {
@@ -27,6 +27,7 @@ class BackupScript {
     };
     
     this.db = null;
+    this.Database = sqlite3.Database;
   }
 
   /**
@@ -41,7 +42,7 @@ class BackupScript {
     }
     
     // Ouvrir la base de données
-    this.db = new Database(this.config.dbPath);
+    this.db = new this.Database(this.config.dbPath);
     this.db.pragma('foreign_keys = ON');
     
     console.log('✅ Service de sauvegarde initialisé');
@@ -214,7 +215,7 @@ class BackupScript {
       fs.copyFileSync(backupPath, this.config.dbPath);
 
       // Réouvrir la base de données
-      this.db = new Database(this.config.dbPath);
+      this.db = new this.Database(this.config.dbPath);
       this.db.pragma('foreign_keys = ON');
 
       console.log('✅ Restauration terminée avec succès');
@@ -228,7 +229,7 @@ class BackupScript {
       console.error('❌ Erreur lors de la restauration:', error.message);
       // Réouvrir la base de données en cas d'erreur
       if (!this.db) {
-        this.db = new Database(this.config.dbPath);
+        this.db = new this.Database(this.config.dbPath);
       }
       return {
         success: false,
@@ -256,7 +257,7 @@ class BackupScript {
       }
 
       // Essayer d'ouvrir la base de données
-      const tempDb = new Database(backupPath);
+      const tempDb = new this.Database(backupPath);
       
       // Vérifier les tables essentielles
       const requiredTables = ['media', 'users', 'loans', 'media_types', 'media_states'];

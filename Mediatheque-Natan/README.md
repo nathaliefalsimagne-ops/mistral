@@ -33,7 +33,7 @@ Médiathèque NATAN est une application desktop **100% hors-ligne** conçue pour
 - ✅ **Médias similaires** à un élément sélectionné
 
 ### 💾 **Gestion des données**
-- ✅ **Base de données SQLite** embarquée (better-sqlite3)
+- ✅ **Base de données SQLite** embarquée (sqlite3)
 - ✅ **Sauvegardes automatiques** avec fréquence configurable
 - ✅ **Synchronisation avec disques externes** (detection, import/export)
 - ✅ **Migration depuis Movie Buddy** et fichiers CSV
@@ -60,7 +60,7 @@ Médiathèque NATAN est une application desktop **100% hors-ligne** conçue pour
 - **Git** (pour le clonage)
 - **Système d'exploitation** : Windows 10+, macOS 10.15+, Linux (Ubuntu 20.04+)
 
-### Dépendances système (pour better-sqlite3)
+### Dépendances système (pour sqlite3)
 
 #### Windows
 Aucune dépendance supplémentaire.
@@ -97,7 +97,7 @@ cd mistral/Mediatheque-Natan
 npm install
 ```
 
-> ⚠️ **Note** : L'installation de `better-sqlite3` peut prendre quelques minutes car elle compile des modules natifs.
+> ⚠️ **Note** : L'installation de `sqlite3` peut prendre quelques minutes car elle compile des modules natifs.
 
 ### 3. Configurer l'application
 
