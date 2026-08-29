@@ -108,8 +108,7 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       template: './app/public/index.html',
-      filename: 'index.html',
-      favicon: './app/public/icon.png'
+      filename: 'index.html'
     }),
     new MiniCssExtractPlugin({
       filename: '[name].[hash:8].css',
@@ -117,10 +116,6 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        {
-          from: 'app/public/icon.png',
-          to: 'icon.png'
-        },
         {
           from: 'app/public',
           to: 'public',
