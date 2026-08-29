@@ -25,7 +25,7 @@ import {
   Cpu,
   Thermometer,
   Play,
-  Stop,
+  Square,
   RefreshCw,
   BarChart3
 } from 'lucide-react';
@@ -999,7 +999,7 @@ const AiSettings = ({ settings, onChange }) => {
                   onClick={stopOllama}
                   className="bg-danger text-white px-md py-sm rounded hover:bg-danger-light transition-colors text-sm"
                 >
-                  <Stop className="w-4 h-4 inline mr-sm" />
+                  <Square className="w-4 h-4 inline mr-sm" />
                   Arrêter Ollama
                 </button>
               </div>
