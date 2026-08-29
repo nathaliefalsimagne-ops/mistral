@@ -1,7 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   mode: process.env.NODE_ENV || 'development',
@@ -54,21 +53,7 @@ module.exports = {
           {
             loader: 'css-loader',
             options: {
-              sourceMap: true,
-              modules: {
-                auto: true,
-                localIdentName: '[name]__[local]--[hash:base64:5]'
-              }
-            }
-          },
-          {
-            loader: 'postcss-loader',
-            options: {
-              postcssOptions: {
-                plugins: [
-                  require('postcss-preset-mantine')
-                ]
-              }
+              sourceMap: true
             }
           },
           {
@@ -107,27 +92,16 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './app/public/index.html',
+      template: path.resolve(__dirname, 'app/public/index.html'),
       filename: 'index.html'
     }),
     new MiniCssExtractPlugin({
       filename: '[name].[hash:8].css',
       chunkFilename: '[id].[hash:8].css'
-    }),
-    new CopyWebpackPlugin({
-      patterns: [
-        {
-          from: 'app/public',
-          to: 'public',
-          globOptions: {
-            ignore: ['**/index.html']
-          }
-        }
-      ]
     })
   ],
   devServer: {
-    contentBase: path.join(__dirname, 'dist'),
+    static: path.join(__dirname, 'dist'),
     compress: true,
     port: 3000,
     hot: true,

@@ -8,17 +8,31 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Users,
+  Users as UsersIcon,
   User,
   Shield,
   Mail,
   Calendar,
   Search,
   Filter,
-  MoreVertical
+  MoreVertical,
+  X
 } from 'lucide-react';
 
-const Users = () => {
+// Composant StatCard intégré
+const StatCard = ({ icon, label, value, color }) => (
+  <div className={`bg-secondary rounded-xl p-md ${color}`}>
+    <div className="flex items-center gap-md">
+      <span className="text-white">{icon}</span>
+      <div>
+        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-sm text-tertiary">{label}</p>
+      </div>
+    </div>
+  </div>
+);
+
+const UsersPage = () => {
   const navigate = useNavigate();
   const { users, isLoading } = useDatabase();
   const { success, error: showError } = useToast();
@@ -55,7 +69,6 @@ const Users = () => {
     }
 
     try {
-      // Dans une vraie implémentation, on appelera l'API
       const response = await window.electronAPI.db.execute({
         sql: `INSERT INTO users (id, first_name, last_name, email, access_level_id, is_active, registration_date)
               VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
@@ -79,7 +92,6 @@ const Users = () => {
           accessLevel: 2,
           isActive: true
         });
-        // Rafraîchir les données
         window.location.reload();
       } else {
         showError(response.error || 'Erreur lors de l\'ajout');
@@ -121,7 +133,6 @@ const Users = () => {
         success('Utilisateur modifié avec succès');
         setShowEditModal(false);
         setSelectedUser(null);
-        // Rafraîchir les données
         window.location.reload();
       } else {
         showError(response.error || 'Erreur lors de la modification');
@@ -137,13 +148,12 @@ const Users = () => {
     if (!selectedUser) return;
 
     try {
-      // Vérifier si l'utilisateur a des emprunts actifs
       const loansResponse = await window.electronAPI.db.query({
         sql: 'SELECT COUNT(*) as count FROM loans WHERE user_id = ? AND return_date IS NULL',
         params: [selectedUser.id]
       });
 
-      if (loansResponse.success && loansResponse.data[0].count > 0) {
+      if (loansResponse.success && loansResponse.data[0]?.count > 0) {
         showError('Impossible de supprimer cet utilisateur: il a des emprunts actifs');
         return;
       }
@@ -157,7 +167,6 @@ const Users = () => {
         success('Utilisateur supprimé avec succès');
         setShowDeleteConfirm(false);
         setSelectedUser(null);
-        // Rafraîchir les données
         window.location.reload();
       } else {
         showError(response.error || 'Erreur lors de la suppression');
@@ -237,9 +246,7 @@ const Users = () => {
 
   // Vérifier si l'utilisateur peut modifier/supprimer
   const canEdit = (user) => {
-    // Un administrateur peut tout modifier
     if (currentUser?.accessLevel === 3) return true;
-    // Un utilisateur peut modifier son propre profil
     return user.id === currentUser?.id;
   };
 
@@ -247,7 +254,7 @@ const Users = () => {
     return (
       <div className="p-lg">
         <div className="animate-pulse space-y-md">
-          <div className="h-8 bg-tertiary rounded w-1/3" />
+          <div className="h-8 bg-tertiary rounded w-1-3" />
           <div className="h-12 bg-tertiary rounded w-full max-w-md" />
           <div className="space-y-md">
             {[1, 2, 3, 4, 5].map(i => (
@@ -357,7 +364,7 @@ const Users = () => {
                   <td className="py-sm px-md">
                     <div className="flex items-center gap-sm">
                       {canEdit(user) && (
-                        <>
+                        <div className="flex gap-sm">
                           <button
                             onClick={() => openEditModal(user)}
                             className="text-secondary hover:text-primary transition-colors"
@@ -374,7 +381,7 @@ const Users = () => {
                               <Trash2 className="w-5 h-5" />
                             </button>
                           )}
-                        </>
+                        </div>
                       )}
                       <Link to={`/users/${user.id}`} className="text-accent hover:text-accent-light transition-colors">
                         <MoreVertical className="w-5 h-5" />
@@ -397,7 +404,7 @@ const Users = () => {
       {/* Statistiques */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
         <StatCard
-          icon={<Users className="w-6 h-6" />}
+          icon={<UsersIcon className="w-6 h-6" />}
           label="Total utilisateurs"
           value={users.length}
           color="bg-info"
@@ -415,7 +422,7 @@ const Users = () => {
           color="bg-warning"
         />
         <StatCard
-          icon={<Users className="w-6 h-6" />}
+          icon={<UsersIcon className="w-6 h-6" />}
           label="Actifs"
           value={users.filter(u => u.isActive === 1).length}
           color="bg-primary"
@@ -461,7 +468,6 @@ const Users = () => {
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-sm">Email</label>
                 <input
@@ -473,7 +479,6 @@ const Users = () => {
                   className="w-full bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-sm">Niveau d'accès</label>
                 <select
@@ -557,7 +562,6 @@ const Users = () => {
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-sm">Email</label>
                 <input
@@ -663,14 +667,4 @@ const Users = () => {
   );
 };
 
-        <span className="text-white">{icon}</span>
-      </div>
-      <div>
-        <p className="text-2xl font-bold">{value}</p>
-        <p className="text-sm text-tertiary">{label}</p>
-      </div>
-    </div>
-  </div>
-);
-
-export default Users;
+export default UsersPage;

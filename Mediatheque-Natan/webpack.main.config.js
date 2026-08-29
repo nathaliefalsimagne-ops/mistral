@@ -16,38 +16,19 @@ module.exports = {
     }
   },
   externals: {
-    // Exclure les modules Electron natifs
-    'better-sqlite3': 'commonjs better-sqlite3',
     'sqlite3': 'commonjs sqlite3',
     'electron': 'commonjs electron'
   },
   module: {
     rules: [
       {
-        test: /\.js$/,
-        exclude: /node_modules/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            presets: ['@babel/preset-env'],
-            plugins: [
-              ['@babel/plugin-transform-runtime', {
-                useESModules: false
-              }]
-            ]
-          }
-        }
-      },
-      {
-        test: /\.node$/,
+        test: /\.node$/, 
         use: 'node-loader'
       }
     ]
   },
   plugins: [
-    new CleanWebpackPlugin({
-      cleanOnceBeforeBuildPatterns: ['**/*', '!assets/**']
-    })
+    new CleanWebpackPlugin()
   ],
   node: {
     __dirname: false,

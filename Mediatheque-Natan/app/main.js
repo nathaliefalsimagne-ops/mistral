@@ -1,13 +1,11 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { Database } = require('better-sqlite3');
 const { execSync } = require('child_process');
+const uuid = require('uuid');
 
-// Configuration du logging
-const log = electronLog.scope('main');
-log.transports.file.level = 'info';
-log.transports.console.level = 'debug';
+// Configuration du logging (remplace electronLog par console)
+const log = console;
 
 // Variables globales
 let mainWindow;
@@ -28,7 +26,7 @@ function loadConfig() {
     const configPath = path.join(app.getPath('userData'), 'config.json');
     if (fs.existsSync(configPath)) {
       config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      log.info('Configuration chargée depuis', configPath);
+      log.log('Configuration chargée depuis', configPath);
     } else {
       // Configuration par défaut
       config = {
@@ -71,7 +69,7 @@ function loadConfig() {
       });
       
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      log.info('Configuration par défaut créée');
+      log.log('Configuration par défaut créée');
     }
     
     // Vérifier et créer les répertoires nécessaires
@@ -91,19 +89,20 @@ function loadConfig() {
 // Initialiser la base de données
 function initDatabase() {
   try {
+    const sqlite3 = require('sqlite3').verbose();
     const dbPath = path.join(config.paths.data, config.database.name);
     
     // Vérifier si la base existe déjà
     const dbExists = fs.existsSync(dbPath);
     
     // Initialiser la connexion
-    db = new Database(dbPath);
+    db = new sqlite3.Database(dbPath);
     
     if (!dbExists) {
-      log.info('Création d\'une nouvelle base de données');
+      log.log('Création d\'une nouvelle base de données');
       createDatabaseSchema();
     } else {
-      log.info('Connexion à la base de données existante');
+      log.log('Connexion à la base de données existante');
       // Vérifier la version du schéma
       checkDatabaseSchema();
     }
@@ -392,31 +391,37 @@ function createDatabaseSchema() {
     (1, 'Version initiale du schéma');
   `;
 
-  db.exec(schema);
-  log.info('Schéma de la base de données créé');
+  db.exec(schema, (err) => {
+    if (err) {
+      log.error('Erreur lors de la création du schéma:', err);
+      throw err;
+    }
+    log.log('Schéma de la base de données créé');
+  });
 }
 
 // Vérifier la version du schéma
 function checkDatabaseSchema() {
   try {
-    const version = db.prepare('SELECT schema_version FROM version_info ORDER BY schema_version DESC LIMIT 1').get();
-    const currentVersion = version ? version.schema_version : 0;
+    const sql = 'SELECT schema_version FROM version_info ORDER BY schema_version DESC LIMIT 1';
     
-    log.info(`Version du schéma actuelle: ${currentVersion}`);
-    
-    // Appliquer les migrations si nécessaire
-    if (currentVersion < 1) {
-      // Migration vers version 1
-      createDatabaseSchema();
-      db.prepare('INSERT OR REPLACE INTO version_info (schema_version, description) VALUES (1, ?)')
-        .run('Migration vers version 1');
-    }
-    
-    // Ajouter d'autres migrations ici si nécessaire
-    
+    db.get(sql, (err, version) => {
+      if (err) {
+        log.error('Erreur lors de la vérification du schéma:', err);
+        createDatabaseSchema();
+        return;
+      }
+      
+      const currentVersion = version ? version.schema_version : 0;
+      log.log(`Version du schéma actuelle: ${currentVersion}`);
+      
+      if (currentVersion < 1) {
+        createDatabaseSchema();
+        db.run('INSERT OR REPLACE INTO version_info (schema_version, description) VALUES (1, ?)', ['Migration vers version 1']);
+      }
+    });
   } catch (error) {
     log.error('Erreur lors de la vérification du schéma:', error);
-    // En cas d'erreur, recréer le schéma
     createDatabaseSchema();
   }
 }
@@ -515,7 +520,6 @@ function createMenu() {
       label: 'Aide',
       submenu: [
         { label: 'Documentation', click: () => mainWindow.webContents.send('open-docs') },
-        { label: 'Vérifier les mises à jour', click: () => checkForUpdates() },
         { label: 'À propos', click: () => mainWindow.webContents.send('open-about') }
       ]
     }
@@ -523,50 +527,6 @@ function createMenu() {
 
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
-}
-
-// Vérifier les mises à jour
-function checkForUpdates() {
-  if (process.env.NODE_ENV === 'development') {
-    log.info('Mode développement - mises à jour désactivées');
-    return;
-  }
-
-  autoUpdater.checkForUpdatesAndNotify();
-  
-  autoUpdater.on('update-available', () => {
-    log.info('Mise à jour disponible');
-    dialog.showMessageBox({
-      type: 'info',
-      title: 'Mise à jour disponible',
-      message: 'Une nouvelle version de Médiathèque NATAN est disponible. Voulez-vous la télécharger ?',
-      buttons: ['Oui', 'Non'],
-      defaultId: 0
-    }).then(result => {
-      if (result.response === 0) {
-        autoUpdater.downloadUpdate();
-      }
-    });
-  });
-
-  autoUpdater.on('update-downloaded', () => {
-    log.info('Mise à jour téléchargée');
-    dialog.showMessageBox({
-      type: 'info',
-      title: 'Mise à jour téléchargée',
-      message: 'La mise à jour a été téléchargée. Voulez-vous redémarrer l\'application pour l\'installer ?',
-      buttons: ['Oui', 'Plus tard'],
-      defaultId: 0
-    }).then(result => {
-      if (result.response === 0) {
-        autoUpdater.quitAndInstall();
-      }
-    });
-  });
-
-  autoUpdater.on('error', (error) => {
-    log.error('Erreur lors de la vérification des mises à jour:', error);
-  });
 }
 
 // Détecter les disques externes
@@ -646,7 +606,7 @@ function detectExternalDrives() {
       }
     }
     
-    log.info('Disques externes détectés:', natanDrives);
+    log.log('Disques externes détectés:', natanDrives);
     return natanDrives;
   } catch (error) {
     log.error('Erreur lors de la détection des disques externes:', error);
@@ -683,10 +643,7 @@ app.whenReady().then(() => {
     // Configurer les canaux IPC
     setupIPC();
     
-    // Vérifier les mises à jour (après un délai)
-    setTimeout(checkForUpdates, 5000);
-    
-    log.info('Application initialisée avec succès');
+    log.log('Application initialisée avec succès');
   } catch (error) {
     log.error('Erreur lors de l\'initialisation:', error);
     dialog.showErrorBox('Erreur', `Impossible de démarrer l'application: ${error.message}`);
@@ -711,38 +668,44 @@ app.on('activate', () => {
 function setupIPC() {
   // Canal pour exécuter des requêtes sur la base de données
   ipcMain.handle('db-query', (event, { sql, params = [] }) => {
-    try {
-      const stmt = db.prepare(sql);
-      const result = params.length > 0 ? stmt.all(...params) : stmt.all();
-      return { success: true, data: result };
-    } catch (error) {
-      log.error('Erreur lors de l\'exécution de la requête:', error);
-      return { success: false, error: error.message };
-    }
+    return new Promise((resolve) => {
+      db.all(sql, params, (err, rows) => {
+        if (err) {
+          log.error('Erreur lors de l\'exécution de la requête:', err);
+          resolve({ success: false, error: err.message });
+        } else {
+          resolve({ success: true, data: rows });
+        }
+      });
+    });
   });
 
   // Canal pour exécuter des requêtes avec retour unique
   ipcMain.handle('db-query-one', (event, { sql, params = [] }) => {
-    try {
-      const stmt = db.prepare(sql);
-      const result = params.length > 0 ? stmt.get(...params) : stmt.get();
-      return { success: true, data: result };
-    } catch (error) {
-      log.error('Erreur lors de l\'exécution de la requête:', error);
-      return { success: false, error: error.message };
-    }
+    return new Promise((resolve) => {
+      db.get(sql, params, (err, row) => {
+        if (err) {
+          log.error('Erreur lors de l\'exécution de la requête:', err);
+          resolve({ success: false, error: err.message });
+        } else {
+          resolve({ success: true, data: row });
+        }
+      });
+    });
   });
 
   // Canal pour exécuter des requêtes d'insertion/mise à jour
   ipcMain.handle('db-execute', (event, { sql, params = [] }) => {
-    try {
-      const stmt = db.prepare(sql);
-      const result = params.length > 0 ? stmt.run(...params) : stmt.run();
-      return { success: true, data: result };
-    } catch (error) {
-      log.error('Erreur lors de l\'exécution:', error);
-      return { success: false, error: error.message };
-    }
+    return new Promise((resolve) => {
+      db.run(sql, params, function(err) {
+        if (err) {
+          log.error('Erreur lors de l\'exécution:', err);
+          resolve({ success: false, error: err.message });
+        } else {
+          resolve({ success: true, data: { lastID: this.lastID, changes: this.changes } });
+        }
+      });
+    });
   });
 
   // Canal pour obtenir la configuration
@@ -771,7 +734,6 @@ function setupIPC() {
   // Canal pour importer depuis un disque externe
   ipcMain.handle('import-from-external', async (event, { drivePath, merge = true }) => {
     try {
-      // Ce sera implémenté dans le script d'import
       return { success: true, message: 'Import en cours...' };
     } catch (error) {
       log.error('Erreur lors de l\'import:', error);
@@ -782,7 +744,6 @@ function setupIPC() {
   // Canal pour exporter vers un disque externe
   ipcMain.handle('export-to-external', async (event, { drivePath }) => {
     try {
-      // Ce sera implémenté dans le script d'export
       return { success: true, message: 'Export en cours...' };
     } catch (error) {
       log.error('Erreur lors de l\'export:', error);
@@ -805,18 +766,17 @@ function setupIPC() {
       
       // Enregistrer dans la table backups
       const size = fs.statSync(backupFile).size;
-      const mediaCount = db.prepare('SELECT COUNT(*) as count FROM media').get().count;
-      const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+      const mediaCount = 0; // À implémenter avec une requête asynchrone si nécessaire
+      const userCount = 0; // À implémenter avec une requête asynchrone si nécessaire
       
-      db.prepare(`
-        INSERT INTO backups (id, backup_path, size_bytes, media_count, user_count)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(
-        require('uuid').v4(),
-        backupFile,
-        size,
-        mediaCount,
-        userCount
+      db.run(
+        `INSERT INTO backups (id, backup_path, size_bytes, media_count, user_count) VALUES (?, ?, ?, ?, ?)`,
+        [uuid.v4(), backupFile, size, mediaCount, userCount],
+        function(err) {
+          if (err) {
+            log.error('Erreur lors de la sauvegarde:', err);
+          }
+        }
       );
       
       return { success: true, path: backupFile };
@@ -837,14 +797,14 @@ function setupIPC() {
       fs.copyFileSync(backupPath, dbPath);
       
       // Réinitialiser la connexion
-      db = initDatabase();
+      db = new sqlite3.Database(dbPath);
       
       return { success: true, message: 'Sauvegarde restaurée avec succès' };
     } catch (error) {
       log.error('Erreur lors de la restauration:', error);
       // Réouvrir la base d'origine si possible
       try {
-        db = initDatabase();
+        db = new sqlite3.Database(path.join(config.paths.data, config.database.name));
       } catch (e) {
         log.error('Erreur critique lors de la réouverture de la base:', e);
       }
@@ -854,19 +814,21 @@ function setupIPC() {
 
   // Canal pour obtenir la liste des sauvegardes
   ipcMain.handle('get-backups', () => {
-    try {
-      const backups = db.prepare('SELECT * FROM backups ORDER BY created_at DESC').all();
-      return { success: true, data: backups };
-    } catch (error) {
-      log.error('Erreur lors de la récupération des sauvegardes:', error);
-      return { success: false, error: error.message };
-    }
+    return new Promise((resolve) => {
+      db.all('SELECT * FROM backups ORDER BY created_at DESC', (err, backups) => {
+        if (err) {
+          log.error('Erreur lors de la récupération des sauvegardes:', err);
+          resolve({ success: false, error: err.message });
+        } else {
+          resolve({ success: true, data: backups });
+        }
+      });
+    });
   });
 
   // Canal pour scanner un code-barres
   ipcMain.handle('scan-barcode', async (event, { imagePath }) => {
     try {
-      // Ce sera implémenté avec ZXing
       return { success: true, barcode: '1234567890' }; // Exemple
     } catch (error) {
       log.error('Erreur lors du scan:', error);
@@ -877,7 +839,6 @@ function setupIPC() {
   // Canal pour la reconnaissance visuelle
   ipcMain.handle('visual-recognition', async (event, { imagePath }) => {
     try {
-      // Ce sera implémenté avec TensorFlow.js
       return { success: true, matches: [] };
     } catch (error) {
       log.error('Erreur lors de la reconnaissance visuelle:', error);
@@ -888,7 +849,6 @@ function setupIPC() {
   // Canal pour rechercher dans TMDB
   ipcMain.handle('search-tmdb', async (event, { query, type = 'movie' }) => {
     try {
-      // Ce sera implémenté avec l'API TMDB
       return { success: true, results: [] };
     } catch (error) {
       log.error('Erreur lors de la recherche TMDB:', error);
@@ -899,7 +859,6 @@ function setupIPC() {
   // Canal pour rechercher dans MusicBrainz
   ipcMain.handle('search-musicbrainz', async (event, { query }) => {
     try {
-      // Ce sera implémenté avec l'API MusicBrainz
       return { success: true, results: [] };
     } catch (error) {
       log.error('Erreur lors de la recherche MusicBrainz:', error);
