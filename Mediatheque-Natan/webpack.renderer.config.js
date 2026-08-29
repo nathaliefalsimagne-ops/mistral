@@ -66,8 +66,7 @@ module.exports = {
             options: {
               postcssOptions: {
                 plugins: [
-                  require('postcss-preset-mantine'),
-                  require('postcss-preset-postcss')
+                  require('postcss-preset-mantine')
                 ]
               }
             }
