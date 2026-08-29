@@ -4,7 +4,7 @@ const { StrictMode } = React;
 const App = require('./src/App').default;
 
 // Charger les styles
-require('./styles/main.css');
+require('./src/index.css');
 
 // Point d'entrée de l'application
 const container = document.getElementById('root');

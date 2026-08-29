@@ -663,11 +663,6 @@ const Users = () => {
   );
 };
 
-// Composant StatCard
-const StatCard = ({ icon, label, value, color }) => (
-  <div className="bg-secondary rounded-xl p-lg">
-    <div className="flex items-center gap-md">
-      <div className={`p-sm rounded-lg ${color}`}>
         <span className="text-white">{icon}</span>
       </div>
       <div>
