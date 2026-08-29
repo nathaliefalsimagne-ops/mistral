@@ -1,0 +1,922 @@
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const { Database } = require('better-sqlite3');
+const electronLog = require('electron-log');
+const { autoUpdater } = require('electron-updater');
+const { execSync } = require('child_process');
+
+// Configuration du logging
+const log = electronLog.scope('main');
+log.transports.file.level = 'info';
+log.transports.console.level = 'debug';
+
+// Variables globales
+let mainWindow;
+let db;
+let config = {};
+
+// Chemins par défaut
+const DEFAULT_PATHS = {
+  data: path.join(app.getPath('userData'), 'data'),
+  media: path.join(app.getPath('userData'), 'media'),
+  backups: path.join(app.getPath('userData'), 'backups'),
+  external: null
+};
+
+// Charger la configuration
+function loadConfig() {
+  try {
+    const configPath = path.join(app.getPath('userData'), 'config.json');
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      log.info('Configuration chargée depuis', configPath);
+    } else {
+      // Configuration par défaut
+      config = {
+        paths: { ...DEFAULT_PATHS },
+        database: {
+          name: 'mediatheque.db',
+          encrypt: false,
+          encryptionKey: null
+        },
+        backup: {
+          enabled: true,
+          frequency: 'daily',
+          maxBackups: 30
+        },
+        recognition: {
+          enabled: true,
+          useCloud: false,
+          confidenceThreshold: 0.85
+        },
+        recommendations: {
+          enabled: true,
+          weights: {
+            historySimilarity: 0.4,
+            categoryPopularity: 0.2,
+            trend: 0.15,
+            seasonality: 0.1,
+            diversity: 0.1,
+            newArrivals: 0.05
+          }
+        },
+        language: 'fr',
+        theme: 'system'
+      };
+      
+      // Créer les répertoires par défaut
+      Object.values(config.paths).forEach(p => {
+        if (p && !fs.existsSync(p)) {
+          fs.mkdirSync(p, { recursive: true });
+        }
+      });
+      
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      log.info('Configuration par défaut créée');
+    }
+    
+    // Vérifier et créer les répertoires nécessaires
+    Object.values(config.paths).forEach(p => {
+      if (p && !fs.existsSync(p)) {
+        fs.mkdirSync(p, { recursive: true });
+      }
+    });
+    
+    return config;
+  } catch (error) {
+    log.error('Erreur lors du chargement de la configuration:', error);
+    throw error;
+  }
+}
+
+// Initialiser la base de données
+function initDatabase() {
+  try {
+    const dbPath = path.join(config.paths.data, config.database.name);
+    
+    // Vérifier si la base existe déjà
+    const dbExists = fs.existsSync(dbPath);
+    
+    // Initialiser la connexion
+    db = new Database(dbPath);
+    
+    if (!dbExists) {
+      log.info('Création d\'une nouvelle base de données');
+      createDatabaseSchema();
+    } else {
+      log.info('Connexion à la base de données existante');
+      // Vérifier la version du schéma
+      checkDatabaseSchema();
+    }
+    
+    return db;
+  } catch (error) {
+    log.error('Erreur lors de l\'initialisation de la base de données:', error);
+    throw error;
+  }
+}
+
+// Créer le schéma de la base de données
+function createDatabaseSchema() {
+  const schema = `
+    -- Table des types de médias
+    CREATE TABLE IF NOT EXISTS media_types (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT
+    );
+
+    -- Table des états des médias
+    CREATE TABLE IF NOT EXISTS media_states (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT
+    );
+
+    -- Table des types de personnes
+    CREATE TABLE IF NOT EXISTS person_types (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE
+    );
+
+    -- Table des types d'emplacements
+    CREATE TABLE IF NOT EXISTS location_types (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT
+    );
+
+    -- Table des niveaux d'accès utilisateur
+    CREATE TABLE IF NOT EXISTS user_access_levels (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT
+    );
+
+    -- Table des catégories
+    CREATE TABLE IF NOT EXISTS categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      parent_id TEXT,
+      level INTEGER NOT NULL DEFAULT 1,
+      description TEXT,
+      FOREIGN KEY (parent_id) REFERENCES categories(id)
+    );
+
+    -- Table des emplacements
+    CREATE TABLE IF NOT EXISTS locations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type_id INTEGER NOT NULL,
+      capacity_max INTEGER,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (type_id) REFERENCES location_types(id)
+    );
+
+    -- Table des personnes (artistes, réalisateurs)
+    CREATE TABLE IF NOT EXISTS persons (
+      id TEXT PRIMARY KEY,
+      first_name TEXT,
+      last_name TEXT NOT NULL,
+      type_id INTEGER NOT NULL,
+      biography TEXT,
+      birth_date TEXT,
+      death_date TEXT,
+      image_url TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (type_id) REFERENCES person_types(id)
+    );
+
+    -- Table des médias
+    CREATE TABLE IF NOT EXISTS media (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      original_title TEXT,
+      type_id INTEGER NOT NULL,
+      release_year INTEGER,
+      duration_minutes INTEGER,
+      synopsis TEXT,
+      average_rating DECIMAL(3,1) DEFAULT 0.0,
+      added_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      state_id INTEGER NOT NULL,
+      location_id TEXT,
+      has_jacket BOOLEAN NOT NULL DEFAULT TRUE,
+      barcode VARCHAR(50),
+      jacket_image_url TEXT,
+      imdb_id TEXT,
+      tmdb_id INTEGER,
+      musicbrainz_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (type_id) REFERENCES media_types(id),
+      FOREIGN KEY (state_id) REFERENCES media_states(id),
+      FOREIGN KEY (location_id) REFERENCES locations(id)
+    );
+
+    -- Table de liaison médias-personnes
+    CREATE TABLE IF NOT EXISTS media_persons (
+      media_id TEXT NOT NULL,
+      person_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      PRIMARY KEY (media_id, person_id, role),
+      FOREIGN KEY (media_id) REFERENCES media(id) ON DELETE CASCADE,
+      FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE CASCADE
+    );
+
+    -- Table de liaison médias-catégories
+    CREATE TABLE IF NOT EXISTS media_categories (
+      media_id TEXT NOT NULL,
+      category_id TEXT NOT NULL,
+      relevance INTEGER DEFAULT 5,
+      PRIMARY KEY (media_id, category_id),
+      FOREIGN KEY (media_id) REFERENCES media(id) ON DELETE CASCADE,
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+    );
+
+    -- Table des utilisateurs
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      first_name TEXT NOT NULL,
+      last_name TEXT NOT NULL,
+      email TEXT,
+      password_hash TEXT,
+      registration_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      access_level_id INTEGER NOT NULL DEFAULT 1,
+      last_login DATETIME,
+      is_active BOOLEAN DEFAULT TRUE,
+      avatar_url TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (access_level_id) REFERENCES user_access_levels(id)
+    );
+
+    -- Table des profils utilisateurs
+    CREATE TABLE IF NOT EXISTS user_profiles (
+      user_id TEXT PRIMARY KEY,
+      preferred_categories JSON,
+      avoided_genres JSON,
+      loan_frequency TEXT,
+      search_history JSON,
+      preferences JSON,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Table des emprunts
+    CREATE TABLE IF NOT EXISTS loans (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      media_id TEXT NOT NULL,
+      loan_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      due_date DATETIME NOT NULL,
+      return_date DATETIME,
+      user_rating INTEGER,
+      user_note TEXT,
+      return_state TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (media_id) REFERENCES media(id)
+    );
+
+    -- Table des sauvegardes
+    CREATE TABLE IF NOT EXISTS backups (
+      id TEXT PRIMARY KEY,
+      backup_path TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      size_bytes INTEGER,
+      media_count INTEGER,
+      user_count INTEGER,
+      is_external BOOLEAN DEFAULT FALSE
+    );
+
+    -- Table des synchronisations
+    CREATE TABLE IF NOT EXISTS sync_logs (
+      id TEXT PRIMARY KEY,
+      source TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      sync_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME,
+      items_added INTEGER DEFAULT 0,
+      items_updated INTEGER DEFAULT 0,
+      items_deleted INTEGER DEFAULT 0,
+      conflicts INTEGER DEFAULT 0,
+      error_message TEXT
+    );
+
+    -- Table des logs
+    CREATE TABLE IF NOT EXISTS logs (
+      id TEXT PRIMARY KEY,
+      level TEXT NOT NULL,
+      message TEXT NOT NULL,
+      context TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Table des métadonnées de version
+    CREATE TABLE IF NOT EXISTS version_info (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      schema_version INTEGER NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      description TEXT
+    );
+
+    -- Index pour les recherches
+    CREATE INDEX IF NOT EXISTS idx_media_title ON media(title);
+    CREATE INDEX IF NOT EXISTS idx_media_type ON media(type_id);
+    CREATE INDEX IF NOT EXISTS idx_media_year ON media(release_year);
+    CREATE INDEX IF NOT EXISTS idx_media_barcode ON media(barcode);
+    CREATE INDEX IF NOT EXISTS idx_media_location ON media(location_id);
+    CREATE INDEX IF NOT EXISTS idx_media_categories ON media_categories(media_id, category_id);
+    CREATE INDEX IF NOT EXISTS idx_media_persons ON media_persons(media_id, person_id);
+    CREATE INDEX IF NOT EXISTS idx_loans_user ON loans(user_id);
+    CREATE INDEX IF NOT EXISTS idx_loans_media ON loans(media_id);
+    CREATE INDEX IF NOT EXISTS idx_loans_dates ON loans(loan_date, due_date, return_date);
+
+    -- Trigger pour les timestamps
+    CREATE TRIGGER IF NOT EXISTS update_media_timestamp AFTER UPDATE ON media
+    FOR EACH ROW BEGIN
+      UPDATE media SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS update_location_timestamp AFTER UPDATE ON locations
+    FOR EACH ROW BEGIN
+      UPDATE locations SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS update_user_timestamp AFTER UPDATE ON users
+    FOR EACH ROW BEGIN
+      UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+    END;
+
+    -- Données de référence initiales
+    INSERT OR IGNORE INTO media_types (id, name, description) VALUES
+    (1, 'DVD', 'Digital Versatile Disc'),
+    (2, 'Blu-ray', 'Blu-ray Disc'),
+    (3, 'CD', 'Compact Disc'),
+    (4, 'Vinyl', 'Disque vinyle');
+
+    INSERT OR IGNORE INTO media_states (id, name, description) VALUES
+    (1, 'Neuf', 'État neuf, jamais utilisé'),
+    (2, 'Bon', 'Bon état, quelques traces d\'usure'),
+    (3, 'Moyen', 'État moyen, rayures visibles'),
+    (4, 'Usagé', 'Usagé, nécessite vérification');
+
+    INSERT OR IGNORE INTO person_types (id, name) VALUES
+    (1, 'Réalisateur'),
+    (2, 'Acteur'),
+    (3, 'Actrice'),
+    (4, 'Musicien'),
+    (5, 'Groupe'),
+    (6, 'Compositeur'),
+    (7, 'Scénariste'),
+    (8, 'Producteur');
+
+    INSERT OR IGNORE INTO location_types (id, name, description) VALUES
+    (1, 'DVDthèque_Jacquettes', 'Emplacement pour DVDs avec jaquettes et codes-barres'),
+    (2, 'CDthèque_Sans_Jacquettes', 'Emplacement pour CDs sans jaquettes'),
+    (3, 'Archivage', 'Archives, accès peu fréquent'),
+    (4, 'En_Prêt', 'Médias actuellement en prêt'),
+    (5, 'En_Réparation', 'Médias en cours de réparation');
+
+    INSERT OR IGNORE INTO user_access_levels (id, name, description) VALUES
+    (1, 'Invité', 'Accès limité, consultation uniquement'),
+    (2, 'Membre', 'Accès complet aux emprunts'),
+    (3, 'Admin', 'Accès complet y compris la gestion du catalogue');
+
+    -- Version du schéma
+    INSERT OR IGNORE INTO version_info (schema_version, description) VALUES
+    (1, 'Version initiale du schéma');
+  `;
+
+  db.exec(schema);
+  log.info('Schéma de la base de données créé');
+}
+
+// Vérifier la version du schéma
+function checkDatabaseSchema() {
+  try {
+    const version = db.prepare('SELECT schema_version FROM version_info ORDER BY schema_version DESC LIMIT 1').get();
+    const currentVersion = version ? version.schema_version : 0;
+    
+    log.info(`Version du schéma actuelle: ${currentVersion}`);
+    
+    // Appliquer les migrations si nécessaire
+    if (currentVersion < 1) {
+      // Migration vers version 1
+      createDatabaseSchema();
+      db.prepare('INSERT OR REPLACE INTO version_info (schema_version, description) VALUES (1, ?)')
+        .run('Migration vers version 1');
+    }
+    
+    // Ajouter d'autres migrations ici si nécessaire
+    
+  } catch (error) {
+    log.error('Erreur lors de la vérification du schéma:', error);
+    // En cas d'erreur, recréer le schéma
+    createDatabaseSchema();
+  }
+}
+
+// Créer la fenêtre principale
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1200,
+    minHeight: 700,
+    title: 'Médiathèque NATAN',
+    icon: path.join(__dirname, 'public', 'icon.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false,
+      preload: path.join(__dirname, 'preload.js'),
+      sandbox: true
+    }
+  });
+
+  // Charger l'interface
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.loadURL('http://localhost:3000');
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
+  }
+
+  // Gérer la fermeture
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
+  // Menu personnalisé
+  createMenu();
+}
+
+// Créer le menu
+function createMenu() {
+  const template = [
+    {
+      label: 'Fichier',
+      submenu: [
+        { label: 'Nouveau média', accelerator: 'CmdOrCtrl+N', click: () => mainWindow.webContents.send('new-media') },
+        { label: 'Rechercher', accelerator: 'CmdOrCtrl+F', click: () => mainWindow.webContents.send('focus-search') },
+        { type: 'separator' },
+        { label: 'Importer depuis...', submenu: [
+          { label: 'Fichier CSV', click: () => mainWindow.webContents.send('import-csv') },
+          { label: 'Disque externe', click: () => mainWindow.webContents.send('import-external') },
+          { label: 'Movie Buddy', click: () => mainWindow.webContents.send('import-movie-buddy') }
+        ] },
+        { label: 'Exporter...', submenu: [
+          { label: 'Vers CSV', click: () => mainWindow.webContents.send('export-csv') },
+          { label: 'Vers disque externe', click: () => mainWindow.webContents.send('export-external') }
+        ] },
+        { type: 'separator' },
+        { label: 'Sauvegarder maintenant', click: () => mainWindow.webContents.send('backup-now') },
+        { type: 'separator' },
+        { label: 'Quitter', accelerator: 'CmdOrCtrl+Q', role: 'quit' }
+      ]
+    },
+    {
+      label: 'Édition',
+      submenu: [
+        { label: 'Annuler', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
+        { label: 'Rétablir', accelerator: 'CmdOrCtrl+Shift+Z', role: 'redo' },
+        { type: 'separator' },
+        { label: 'Préférences', click: () => mainWindow.webContents.send('open-settings') }
+      ]
+    },
+    {
+      label: 'Affichage',
+      submenu: [
+        { label: 'Actualiser', accelerator: 'CmdOrCtrl+R', role: 'reload' },
+        { label: 'Zoom avant', accelerator: 'CmdOrCtrl+Plus', role: 'zoomIn' },
+        { label: 'Zoom arrière', accelerator: 'CmdOrCtrl+-', role: 'zoomOut' },
+        { label: 'Réinitialiser le zoom', accelerator: 'CmdOrCtrl+0', role: 'resetZoom' },
+        { type: 'separator' },
+        { label: 'Plein écran', role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Outils',
+      submenu: [
+        { label: 'Scanner code-barres', click: () => mainWindow.webContents.send('open-barcode-scanner') },
+        { label: 'Reconnaissance visuelle', click: () => mainWindow.webContents.send('open-visual-recognition') },
+        { label: 'Synchroniser avec disque externe', click: () => mainWindow.webContents.send('sync-external') },
+        { type: 'separator' },
+        { label: 'Statistiques', click: () => mainWindow.webContents.send('open-stats') },
+        { label: 'Tableau de bord', click: () => mainWindow.webContents.send('open-dashboard') }
+      ]
+    },
+    {
+      label: 'Aide',
+      submenu: [
+        { label: 'Documentation', click: () => mainWindow.webContents.send('open-docs') },
+        { label: 'Vérifier les mises à jour', click: () => checkForUpdates() },
+        { label: 'À propos', click: () => mainWindow.webContents.send('open-about') }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
+// Vérifier les mises à jour
+function checkForUpdates() {
+  if (process.env.NODE_ENV === 'development') {
+    log.info('Mode développement - mises à jour désactivées');
+    return;
+  }
+
+  autoUpdater.checkForUpdatesAndNotify();
+  
+  autoUpdater.on('update-available', () => {
+    log.info('Mise à jour disponible');
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Mise à jour disponible',
+      message: 'Une nouvelle version de Médiathèque NATAN est disponible. Voulez-vous la télécharger ?',
+      buttons: ['Oui', 'Non'],
+      defaultId: 0
+    }).then(result => {
+      if (result.response === 0) {
+        autoUpdater.downloadUpdate();
+      }
+    });
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    log.info('Mise à jour téléchargée');
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Mise à jour téléchargée',
+      message: 'La mise à jour a été téléchargée. Voulez-vous redémarrer l\'application pour l\'installer ?',
+      buttons: ['Oui', 'Plus tard'],
+      defaultId: 0
+    }).then(result => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
+
+  autoUpdater.on('error', (error) => {
+    log.error('Erreur lors de la vérification des mises à jour:', error);
+  });
+}
+
+// Détecter les disques externes
+function detectExternalDrives() {
+  try {
+    let drives = [];
+    
+    if (process.platform === 'win32') {
+      // Windows
+      const output = execSync('wmic logicaldisk get deviceid,volumename,description').toString();
+      const lines = output.split('\n');
+      
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].trim().split(/\s{2,}/);
+        if (parts.length >= 2 && parts[0] && parts[0].match(/^[A-Za-z]:$/)) {
+          drives.push({
+            path: parts[0],
+            name: parts[1] || 'Disque amovible',
+            type: 'external'
+          });
+        }
+      }
+    } else if (process.platform === 'darwin') {
+      // macOS
+      const output = execSync('diskutil list').toString();
+      const lines = output.split('\n');
+      
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('/dev/disk') && !lines[i].includes('synthesized')) {
+          const match = lines[i].match(/\/dev\/disk(\d+)/);
+          if (match) {
+            const diskNumber = match[1];
+            const mountPointMatch = lines[i + 1]?.match(/\/Volumes\/([^\s]+)/);
+            if (mountPointMatch) {
+              drives.push({
+                path: `/Volumes/${mountPointMatch[1]}`,
+                name: mountPointMatch[1],
+                type: 'external'
+              });
+            }
+          }
+        }
+      }
+    } else {
+      // Linux
+      const output = execSync('lsblk -o NAME,MOUNTPOINT,LABEL').toString();
+      const lines = output.split('\n');
+      
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].trim().split(/\s+/);
+        if (parts.length >= 2 && parts[1] && parts[1].startsWith('/')) {
+          drives.push({
+            path: parts[1],
+            name: parts[2] || 'Disque amovible',
+            type: 'external'
+          });
+        }
+      }
+    }
+    
+    // Vérifier si un disque contient une base de données NATAN
+    const natanDrives = [];
+    for (const drive of drives) {
+      try {
+        const dbPath = path.join(drive.path, 'Mediatheque-Natan', 'data', 'mediatheque.db');
+        const oldDbPath = path.join(drive.path, 'mediatheque.db');
+        
+        if (fs.existsSync(dbPath) || fs.existsSync(oldDbPath)) {
+          natanDrives.push({
+            ...drive,
+            hasNatanDb: true,
+            dbPath: fs.existsSync(dbPath) ? dbPath : oldDbPath
+          });
+        }
+      } catch (error) {
+        log.error(`Erreur lors de la vérification du disque ${drive.path}:`, error);
+      }
+    }
+    
+    log.info('Disques externes détectés:', natanDrives);
+    return natanDrives;
+  } catch (error) {
+    log.error('Erreur lors de la détection des disques externes:', error);
+    return [];
+  }
+}
+
+// Gérer les erreurs non capturées
+process.on('uncaughtException', (error) => {
+  log.error('Erreur non capturée:', error);
+  dialog.showErrorBox('Erreur critique', `Une erreur inattendue est survenue: ${error.message}`);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  log.error('Rejet non géré:', reason);
+  dialog.showErrorBox('Erreur', `Un rejet de promesse n'a pas été géré: ${reason}`);
+});
+
+// Initialisation de l'application
+app.whenReady().then(() => {
+  try {
+    // Charger la configuration
+    config = loadConfig();
+    
+    // Initialiser la base de données
+    db = initDatabase();
+    
+    // Détecter les disques externes
+    const externalDrives = detectExternalDrives();
+    
+    // Créer la fenêtre principale
+    createWindow();
+    
+    // Configurer les canaux IPC
+    setupIPC();
+    
+    // Vérifier les mises à jour (après un délai)
+    setTimeout(checkForUpdates, 5000);
+    
+    log.info('Application initialisée avec succès');
+  } catch (error) {
+    log.error('Erreur lors de l\'initialisation:', error);
+    dialog.showErrorBox('Erreur', `Impossible de démarrer l'application: ${error.message}`);
+    app.quit();
+  }
+});
+
+// Fermeture de l'application
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (mainWindow === null) {
+    createWindow();
+  }
+});
+
+// Configuration des canaux IPC
+function setupIPC() {
+  // Canal pour exécuter des requêtes sur la base de données
+  ipcMain.handle('db-query', (event, { sql, params = [] }) => {
+    try {
+      const stmt = db.prepare(sql);
+      const result = params.length > 0 ? stmt.all(...params) : stmt.all();
+      return { success: true, data: result };
+    } catch (error) {
+      log.error('Erreur lors de l\'exécution de la requête:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour exécuter des requêtes avec retour unique
+  ipcMain.handle('db-query-one', (event, { sql, params = [] }) => {
+    try {
+      const stmt = db.prepare(sql);
+      const result = params.length > 0 ? stmt.get(...params) : stmt.get();
+      return { success: true, data: result };
+    } catch (error) {
+      log.error('Erreur lors de l\'exécution de la requête:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour exécuter des requêtes d'insertion/mise à jour
+  ipcMain.handle('db-execute', (event, { sql, params = [] }) => {
+    try {
+      const stmt = db.prepare(sql);
+      const result = params.length > 0 ? stmt.run(...params) : stmt.run();
+      return { success: true, data: result };
+    } catch (error) {
+      log.error('Erreur lors de l\'exécution:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour obtenir la configuration
+  ipcMain.handle('get-config', () => {
+    return { success: true, data: config };
+  });
+
+  // Canal pour mettre à jour la configuration
+  ipcMain.handle('update-config', (event, newConfig) => {
+    try {
+      config = { ...config, ...newConfig };
+      const configPath = path.join(app.getPath('userData'), 'config.json');
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      return { success: true, data: config };
+    } catch (error) {
+      log.error('Erreur lors de la mise à jour de la configuration:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour détecter les disques externes
+  ipcMain.handle('detect-external-drives', async () => {
+    return { success: true, data: detectExternalDrives() };
+  });
+
+  // Canal pour importer depuis un disque externe
+  ipcMain.handle('import-from-external', async (event, { drivePath, merge = true }) => {
+    try {
+      // Ce sera implémenté dans le script d'import
+      return { success: true, message: 'Import en cours...' };
+    } catch (error) {
+      log.error('Erreur lors de l\'import:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour exporter vers un disque externe
+  ipcMain.handle('export-to-external', async (event, { drivePath }) => {
+    try {
+      // Ce sera implémenté dans le script d'export
+      return { success: true, message: 'Export en cours...' };
+    } catch (error) {
+      log.error('Erreur lors de l\'export:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour créer une sauvegarde
+  ipcMain.handle('create-backup', async (event, { backupPath }) => {
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupFile = path.join(
+        backupPath || config.paths.backups,
+        `mediatheque_backup_${timestamp}.db`
+      );
+      
+      // Copier la base de données
+      const dbPath = path.join(config.paths.data, config.database.name);
+      fs.copyFileSync(dbPath, backupFile);
+      
+      // Enregistrer dans la table backups
+      const size = fs.statSync(backupFile).size;
+      const mediaCount = db.prepare('SELECT COUNT(*) as count FROM media').get().count;
+      const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+      
+      db.prepare(`
+        INSERT INTO backups (id, backup_path, size_bytes, media_count, user_count)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        require('uuid').v4(),
+        backupFile,
+        size,
+        mediaCount,
+        userCount
+      );
+      
+      return { success: true, path: backupFile };
+    } catch (error) {
+      log.error('Erreur lors de la sauvegarde:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour restaurer une sauvegarde
+  ipcMain.handle('restore-backup', async (event, { backupPath }) => {
+    try {
+      // Fermer la connexion à la base actuelle
+      db.close();
+      
+      // Copier la sauvegarde
+      const dbPath = path.join(config.paths.data, config.database.name);
+      fs.copyFileSync(backupPath, dbPath);
+      
+      // Réinitialiser la connexion
+      db = initDatabase();
+      
+      return { success: true, message: 'Sauvegarde restaurée avec succès' };
+    } catch (error) {
+      log.error('Erreur lors de la restauration:', error);
+      // Réouvrir la base d'origine si possible
+      try {
+        db = initDatabase();
+      } catch (e) {
+        log.error('Erreur critique lors de la réouverture de la base:', e);
+      }
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour obtenir la liste des sauvegardes
+  ipcMain.handle('get-backups', () => {
+    try {
+      const backups = db.prepare('SELECT * FROM backups ORDER BY created_at DESC').all();
+      return { success: true, data: backups };
+    } catch (error) {
+      log.error('Erreur lors de la récupération des sauvegardes:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour scanner un code-barres
+  ipcMain.handle('scan-barcode', async (event, { imagePath }) => {
+    try {
+      // Ce sera implémenté avec ZXing
+      return { success: true, barcode: '1234567890' }; // Exemple
+    } catch (error) {
+      log.error('Erreur lors du scan:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour la reconnaissance visuelle
+  ipcMain.handle('visual-recognition', async (event, { imagePath }) => {
+    try {
+      // Ce sera implémenté avec TensorFlow.js
+      return { success: true, matches: [] };
+    } catch (error) {
+      log.error('Erreur lors de la reconnaissance visuelle:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour rechercher dans TMDB
+  ipcMain.handle('search-tmdb', async (event, { query, type = 'movie' }) => {
+    try {
+      // Ce sera implémenté avec l'API TMDB
+      return { success: true, results: [] };
+    } catch (error) {
+      log.error('Erreur lors de la recherche TMDB:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour rechercher dans MusicBrainz
+  ipcMain.handle('search-musicbrainz', async (event, { query }) => {
+    try {
+      // Ce sera implémenté avec l'API MusicBrainz
+      return { success: true, results: [] };
+    } catch (error) {
+      log.error('Erreur lors de la recherche MusicBrainz:', error);
+      return { success: false, error: error.message };
+    }
+  });
+}
+
+// Exporter les modules pour les tests
+if (process.env.NODE_ENV === 'test') {
+  module.exports = {
+    loadConfig,
+    initDatabase,
+    createDatabaseSchema,
+    checkDatabaseSchema,
+    detectExternalDrives
+  };
+}
