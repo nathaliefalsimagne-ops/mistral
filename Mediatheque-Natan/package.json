@@ -82,7 +82,7 @@
     "@tensorflow-models/mobilenet": "^4.0.0",
     "@tensorflow/tfjs": "^4.15.0",
     "@zxing/browser": "^0.1.4",
-    "@zxing/library": "^0.20.0",
+    "@zxing/library": "^0.21.0",
     "axios": "^1.6.7",
     "better-sqlite3": "^9.2.2",
     "chart.js": "^4.4.1",
