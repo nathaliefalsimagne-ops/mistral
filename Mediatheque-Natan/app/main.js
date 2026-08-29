@@ -2,8 +2,6 @@ const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Database } = require('better-sqlite3');
-const electronLog = require('electron-log');
-const { autoUpdater } = require('electron-updater');
 const { execSync } = require('child_process');
 
 // Configuration du logging
