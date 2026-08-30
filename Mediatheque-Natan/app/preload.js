@@ -213,6 +213,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete: (profileId) => ipcRenderer.invoke('delete-profile', { profileId }),
     verifyPin: (profileId, pin) => ipcRenderer.invoke('verify-profile-pin', { profileId, pin })
   },
+
+  // Méthodes pour le scan de code-barres depuis le mobile (QR code)
+  mobileScan: {
+    startSession: () => ipcRenderer.invoke('start-mobile-scan-session'),
+    onResult: (callback) => ipcRenderer.on('mobile-scan-result', callback),
+    removeResultListener: (callback) => ipcRenderer.removeListener('mobile-scan-result', callback)
+  },
   
   // Méthodes pour les notifications
   notify: {

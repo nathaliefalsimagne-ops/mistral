@@ -8,6 +8,7 @@ const { importMovieBuddyRows } = require('./importers/movieBuddy');
 const csvParser = require('csv-parser');
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
+const mobileScanServer = require('./mobileScanServer');
 
 // Configuration du logging (remplace electronLog par console)
 const log = console;
@@ -421,7 +422,14 @@ app.whenReady().then(() => {
     
     // Configurer les canaux IPC
     setupIPC();
-    
+
+    // Transmettre au renderer les codes-barres scannés depuis le mobile
+    mobileScanServer.on('result', ({ barcode }) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('mobile-scan-result', { barcode });
+      }
+    });
+
     log.log('Application initialisée avec succès');
   } catch (error) {
     log.error('Erreur lors de l\'initialisation:', error);
@@ -432,6 +440,7 @@ app.whenReady().then(() => {
 
 // Fermeture de l'application
 app.on('window-all-closed', () => {
+  mobileScanServer.stop();
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -822,6 +831,17 @@ function setupIPC() {
         resolve(match ? { success: true } : { success: false, error: 'Code PIN incorrect.' });
       });
     });
+  });
+
+  // Canal pour démarrer une session de scan depuis le mobile (QR code)
+  ipcMain.handle('start-mobile-scan-session', async () => {
+    try {
+      const session = await mobileScanServer.createSession();
+      return { success: true, data: session };
+    } catch (error) {
+      log.error('Erreur lors du démarrage de la session de scan mobile:', error);
+      return { success: false, error: error.message };
+    }
   });
 }
 

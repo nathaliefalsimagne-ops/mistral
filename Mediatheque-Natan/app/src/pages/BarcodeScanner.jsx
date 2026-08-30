@@ -13,7 +13,8 @@ import {
   RotateCcw,
   Flashlight,
   Settings,
-  Database
+  Database,
+  Smartphone
 } from 'lucide-react';
 
 const BarcodeScanner = () => {
@@ -31,6 +32,8 @@ const BarcodeScanner = () => {
   const [error, setError] = useState(null);
   const [torchOn, setTorchOn] = useState(false);
   const [cameraFacing, setCameraFacing] = useState('environment'); // environment ou user
+  const [mobileSession, setMobileSession] = useState(null);
+  const [isStartingMobileScan, setIsStartingMobileScan] = useState(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -228,6 +231,33 @@ const BarcodeScanner = () => {
       setIsLoading(false);
     }
   }, [scanned, stopScanning, getMediaById, success]);
+
+  // Démarrer une session de scan depuis le mobile (QR code)
+  const startMobileScan = useCallback(async () => {
+    setIsStartingMobileScan(true);
+    try {
+      const response = await window.electronAPI.mobileScan.startSession();
+      if (response.success) {
+        setMobileSession(response.data);
+      } else {
+        showError(response.error || 'Impossible de démarrer le scan depuis le mobile');
+      }
+    } catch (err) {
+      showError(`Erreur: ${err.message}`);
+    } finally {
+      setIsStartingMobileScan(false);
+    }
+  }, [showError]);
+
+  // Écouter les codes-barres scannés depuis le mobile
+  useEffect(() => {
+    const onMobileResult = (event, { barcode: code }) => {
+      setMobileSession(null);
+      handleBarcodeDetected(code);
+    };
+    window.electronAPI.mobileScan.onResult(onMobileResult);
+    return () => window.electronAPI.mobileScan.removeResultListener(onMobileResult);
+  }, [handleBarcodeDetected]);
 
   // Basculer la lampe torche
   const toggleTorch = useCallback(async () => {
@@ -514,7 +544,14 @@ const BarcodeScanner = () => {
             description="Identifier un média par son image"
             onClick={() => navigate('/recognize')}
           />
-          
+
+          <ActionCard
+            icon={<Smartphone className="w-6 h-6" />}
+            title="Scanner depuis mobile"
+            description="Utiliser la caméra de votre téléphone"
+            onClick={startMobileScan}
+          />
+
           <ActionCard
             icon={<Database className="w-6 h-6" />}
             title="Rechercher dans la base"
@@ -550,6 +587,39 @@ const BarcodeScanner = () => {
           />
         </div>
       </div>
+
+      {/* Modale QR code pour le scan depuis mobile */}
+      {(mobileSession || isStartingMobileScan) && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-md">
+          <div className="bg-secondary rounded-xl p-lg max-w-sm w-full text-center space-y-md">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Scanner depuis votre téléphone</h3>
+              <button onClick={() => setMobileSession(null)} className="text-tertiary hover:text-primary transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isStartingMobileScan ? (
+              <div className="py-xl flex justify-center">
+                <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-tertiary">
+                  Ouvrez l'appareil photo de votre téléphone (sur le même Wi-Fi) et visez ce QR code.
+                </p>
+                <img src={mobileSession.qrDataUrl} alt="QR code de scan mobile" className="mx-auto rounded-lg bg-white p-sm" />
+                <p className="text-xs text-secondary">
+                  Votre téléphone affichera un avertissement "connexion non sécurisée" : c'est normal,
+                  la connexion ne quitte jamais votre réseau Wi-Fi. Vous pouvez poursuivre.
+                </p>
+                <p className="text-xs text-tertiary break-all">{mobileSession.url}</p>
+                <p className="text-xs text-secondary">Lien valable 5 minutes.</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
