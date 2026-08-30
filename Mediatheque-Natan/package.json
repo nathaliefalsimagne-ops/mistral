@@ -91,6 +91,7 @@
     "clsx": "^2.1.0",
     "cross-env": "^7.0.3",
     "css-loader": "^7.1.1",
+    "csv-parser": "^3.0.0",
     "electron": "^28.2.0",
     "electron-builder": "^24.9.0",
     "electron-store": "^8.1.0",
