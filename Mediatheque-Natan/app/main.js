@@ -618,6 +618,66 @@ function setupIPC() {
     });
   });
 
+  // Canal pour associer des catégories (genres TMDB ou ajoutées à la main) à
+  // un média. Remplace entièrement les associations existantes, comme
+  // save-media-persons. Réutilise une catégorie existante (même nom) plutôt
+  // que d'en recréer une à chaque import.
+  ipcMain.handle('save-media-categories', async (event, { mediaId, categories }) => {
+    const dbGet = (sql, params) => new Promise((resolve, reject) => {
+      db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
+    });
+    const dbRun = (sql, params) => new Promise((resolve, reject) => {
+      db.run(sql, params, function (err) { return err ? reject(err) : resolve(this); });
+    });
+
+    try {
+      await dbRun('DELETE FROM media_categories WHERE media_id = ?', [mediaId]);
+
+      for (const category of categories || []) {
+        const name = (category.name || '').trim();
+        if (!name) continue;
+
+        const existing = await dbGet('SELECT id FROM categories WHERE name = ?', [name]);
+        let categoryId = existing?.id;
+        if (!categoryId) {
+          categoryId = uuid.v4();
+          await dbRun('INSERT INTO categories (id, name, level) VALUES (?, ?, 1)', [categoryId, name]);
+        }
+
+        await dbRun(
+          'INSERT OR IGNORE INTO media_categories (media_id, category_id) VALUES (?, ?)',
+          [mediaId, categoryId]
+        );
+      }
+
+      return { success: true };
+    } catch (error) {
+      log.error('Erreur lors de l\'enregistrement des catégories:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour récupérer les catégories associées à un média (édition)
+  ipcMain.handle('get-media-categories', (event, mediaId) => {
+    return new Promise((resolve) => {
+      db.all(
+        `SELECT c.id, c.name
+         FROM media_categories mc
+         JOIN categories c ON c.id = mc.category_id
+         WHERE mc.media_id = ?`,
+        [mediaId],
+        (err, rows) => {
+          if (err) {
+            log.error('Erreur lors de la récupération des catégories:', err);
+            resolve({ success: false, error: err.message });
+          } else {
+            resolve({ success: true, data: rows });
+          }
+        }
+      );
+    });
+  });
+
   // Canal pour obtenir la configuration
   ipcMain.handle('get-config', () => {
     return { success: true, data: config };
@@ -786,7 +846,8 @@ function setupIPC() {
               vote_average: item.vote_average,
               poster_path: item.poster_path,
               runtime: detail.data.runtime || (detail.data.episode_run_time || [])[0] || null,
-              imdb_id: detail.data.imdb_id || null
+              imdb_id: detail.data.imdb_id || null,
+              genres: (detail.data.genres || []).map((g) => g.name)
             };
           } catch (detailError) {
             log.error('Erreur lors de la récupération des détails TMDB:', detailError.message);
@@ -799,7 +860,8 @@ function setupIPC() {
               vote_average: item.vote_average,
               poster_path: item.poster_path,
               runtime: null,
-              imdb_id: null
+              imdb_id: null,
+              genres: []
             };
           }
         })

@@ -18,14 +18,15 @@ import {
   Tag,
   Users,
   Plus,
-  Trash2
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 const AddMedia = ({ isEdit = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { getMediaById, addMedia, updateMedia, locations, locationTypes, categories, persons, createLocation } = useDatabase();
+  const { media: allMedia, getMediaById, addMedia, updateMedia, locations, locationTypes, categories, persons, createLocation } = useDatabase();
   const { success, error: showError } = useToast();
 
   const [media, setMedia] = useState({
@@ -60,6 +61,7 @@ const AddMedia = ({ isEdit = false }) => {
   const [newPerson, setNewPerson] = useState({ name: '', role: '', type: 1 });
   const [newLocation, setNewLocation] = useState({ name: '', type_id: 1 });
   const [isCreatingLocation, setIsCreatingLocation] = useState(false);
+  const [duplicateMatches, setDuplicateMatches] = useState(null);
 
   // Charger les données si c'est une édition
   useEffect(() => {
@@ -70,14 +72,8 @@ const AddMedia = ({ isEdit = false }) => {
           if (response.success) {
             setMedia(response.data);
             
-            // TODO: les catégories associées à un média ne sont pas encore
-            // persistées (media_categories n'est jamais écrite) - à traiter
-            // séparément, comme ça vient de l'être pour les personnes.
-            const mockCategories = [
-              { id: 'cat-1', name: 'Science-Fiction' },
-              { id: 'cat-2', name: 'Action' }
-            ];
-            setSelectedCategories(mockCategories);
+            const categoriesResponse = await window.electronAPI.db.getMediaCategories(id);
+            setSelectedCategories(categoriesResponse.success ? categoriesResponse.data : []);
 
             const personsResponse = await window.electronAPI.db.getMediaPersons(id);
             setSelectedPersons(personsResponse.success ? personsResponse.data : []);
@@ -139,7 +135,8 @@ const AddMedia = ({ isEdit = false }) => {
       release_year: result.release_year,
       duration_minutes: result.runtime,
       synopsis: result.overview,
-      average_rating: result.vote_average,
+      // La note n'est pas importée : c'est à l'utilisateur de noter le média
+      // s'il le souhaite (ex: au moment d'un emprunt), pas TMDB.
       imdb_id: result.imdb_id,
       tmdb_id: result.id,
       jacket_image_url: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : ''
@@ -147,6 +144,10 @@ const AddMedia = ({ isEdit = false }) => {
     setSearchResults([]);
     setSearchQuery('');
     success('Informations importées depuis TMDB');
+
+    if (result.genres?.length > 0) {
+      setSelectedCategories(result.genres.map(name => ({ id: window.electronAPI.utils.generateId(), name })));
+    }
 
     // Récupérer le casting (réalisateur, scénaristes, acteurs) en tâche de
     // fond : un échec ici (ex: clé API désactivée entre temps) ne doit pas
@@ -246,15 +247,9 @@ const AddMedia = ({ isEdit = false }) => {
     setSelectedPersons(prev => prev.filter(person => person.id !== id));
   }, []);
 
-  // Soumettre le formulaire
-  const handleSubmit = useCallback(async (e) => {
-    e.preventDefault();
-    
-    if (!media.title.trim()) {
-      showError('Le titre est obligatoire');
-      return;
-    }
-
+  // Enregistrer réellement le média (après confirmation d'un doublon éventuel)
+  const performSave = useCallback(async () => {
+    setDuplicateMatches(null);
     setIsSubmitting(true);
 
     try {
@@ -280,6 +275,13 @@ const AddMedia = ({ isEdit = false }) => {
           console.error('Erreur lors de l\'enregistrement des personnes:', personsErr);
         }
 
+        // Idem pour les catégories (genres TMDB ou ajoutées à la main).
+        try {
+          await window.electronAPI.db.saveMediaCategories(media.id, selectedCategories);
+        } catch (categoriesErr) {
+          console.error('Erreur lors de l\'enregistrement des catégories:', categoriesErr);
+        }
+
         success(`Média ${isEdit ? 'mis à jour' : 'ajouté'} avec succès`);
         navigate(`/media/detail/${response.data?.lastInsertRowid || media.id}`);
       } else {
@@ -291,7 +293,30 @@ const AddMedia = ({ isEdit = false }) => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [media, isEdit, addMedia, updateMedia, selectedPersons, showError, success, navigate]);
+  }, [media, isEdit, addMedia, updateMedia, selectedPersons, selectedCategories, showError, success, navigate]);
+
+  // Soumettre le formulaire : avertit si un média du même titre existe déjà
+  // (ex: re-scanner par erreur un DVD déjà enregistré), sans bloquer -
+  // posséder à la fois le DVD et le Blu-ray d'un même titre est légitime.
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault();
+
+    if (!media.title.trim()) {
+      showError('Le titre est obligatoire');
+      return;
+    }
+
+    if (!isEdit) {
+      const normalizedTitle = media.title.trim().toLowerCase();
+      const matches = allMedia.filter(m => m.title.trim().toLowerCase() === normalizedTitle);
+      if (matches.length > 0) {
+        setDuplicateMatches(matches);
+        return;
+      }
+    }
+
+    performSave();
+  }, [media.title, isEdit, allMedia, showError, performSave]);
 
   // Scanner un code-barres
   const handleScanBarcode = useCallback(() => {
@@ -346,6 +371,62 @@ const AddMedia = ({ isEdit = false }) => {
 
       {/* Formulaire */}
       <form onSubmit={handleSubmit} className="bg-secondary rounded-xl p-lg">
+        {/* Recherche automatique : en premier pour pré-remplir le reste du
+            formulaire (titre, année, synopsis, casting, genres...) avant de
+            passer aux champs manuels. */}
+        <div className="space-y-md pb-lg border-b mb-lg">
+          <h2 className="text-xl font-semibold">Recherche automatique</h2>
+          <div className="flex gap-sm">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher dans TMDB..."
+              className="flex-1 bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            <button
+              type="button"
+              onClick={searchInTMDB}
+              className="bg-accent text-white px-md py-sm rounded hover:bg-accent-light transition-colors flex items-center gap-sm"
+            >
+              <Search className="w-5 h-5" />
+              <span>Rechercher</span>
+            </button>
+          </div>
+
+          {/* Résultats de recherche */}
+          {searchResults.length > 0 && (
+            <div className="mt-md space-y-sm">
+              {searchResults.map(result => (
+                <button
+                  key={result.id}
+                  type="button"
+                  onClick={() => selectSearchResult(result)}
+                  className="w-full flex items-center gap-md p-md rounded-lg hover:bg-tertiary transition-colors text-left"
+                >
+                  <div className="w-10 h-14 bg-tertiary rounded overflow-hidden flex-shrink-0">
+                    {result.poster_path ? (
+                      <img
+                        src={`https://image.tmdb.org/t/p/w92${result.poster_path}`}
+                        alt={result.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Film className="w-6 h-6 text-tertiary m-auto" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{result.title}</p>
+                    <p className="text-xs text-tertiary">
+                      {result.release_date?.substring(0, 4)} • ⭐ {result.vote_average}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Section 1: Informations de base */}
         <div className="space-y-lg">
           <h2 className="text-xl font-semibold border-b pb-md">Informations de base</h2>
@@ -397,7 +478,6 @@ const AddMedia = ({ isEdit = false }) => {
                 <option value="1">DVD</option>
                 <option value="2">Blu-ray</option>
                 <option value="3">CD</option>
-                <option value="4">Vinyl</option>
               </select>
             </div>
 
@@ -475,23 +555,6 @@ const AddMedia = ({ isEdit = false }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
             {/* État */}
-            <div>
-              <label className="block text-sm font-medium mb-sm">
-                État
-              </label>
-              <select
-                name="state_id"
-                value={media.state_id}
-                onChange={handleChange}
-                className="w-full bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
-              >
-                <option value="1">Neuf</option>
-                <option value="2">Bon</option>
-                <option value="3">Moyen</option>
-                <option value="4">Usagé</option>
-              </select>
-            </div>
-
             {/* Emplacement */}
             <div>
               <label className="block text-sm font-medium mb-sm">
@@ -527,19 +590,6 @@ const AddMedia = ({ isEdit = false }) => {
               )}
             </div>
 
-            {/* Avec jaquette */}
-            <div>
-              <label className="flex items-center gap-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="has_jacket"
-                  checked={media.has_jacket}
-                  onChange={handleChange}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm font-medium">Avec jaquette</span>
-              </label>
-            </div>
 
             {/* Code-barres */}
             <div>
@@ -652,60 +702,6 @@ const AddMedia = ({ isEdit = false }) => {
                 className="w-full bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
-          </div>
-
-          {/* Recherche automatique */}
-          <div className="mt-lg pt-lg border-t">
-            <h3 className="text-lg font-medium mb-md">Recherche automatique</h3>
-            <div className="flex gap-sm">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher dans TMDB..."
-                className="flex-1 bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
-              />
-              <button
-                type="button"
-                onClick={searchInTMDB}
-                className="bg-accent text-white px-md py-sm rounded hover:bg-accent-light transition-colors flex items-center gap-sm"
-              >
-                <Search className="w-5 h-5" />
-                <span>Rechercher</span>
-              </button>
-            </div>
-
-            {/* Résultats de recherche */}
-            {searchResults.length > 0 && (
-              <div className="mt-md space-y-sm">
-                {searchResults.map(result => (
-                  <button
-                    key={result.id}
-                    type="button"
-                    onClick={() => selectSearchResult(result)}
-                    className="w-full flex items-center gap-md p-md rounded-lg hover:bg-tertiary transition-colors text-left"
-                  >
-                    <div className="w-10 h-14 bg-tertiary rounded overflow-hidden flex-shrink-0">
-                      {result.poster_path ? (
-                        <img
-                          src={`https://image.tmdb.org/t/p/w92${result.poster_path}`}
-                          alt={result.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Film className="w-6 h-6 text-tertiary m-auto" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium">{result.title}</p>
-                      <p className="text-xs text-tertiary">
-                        {result.release_date?.substring(0, 4)} • ⭐ {result.vote_average}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
@@ -956,6 +952,50 @@ const AddMedia = ({ isEdit = false }) => {
                 disabled={!newPerson.name.trim()}
               >
                 Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alerte de doublon possible (même titre déjà en base) */}
+      {duplicateMatches && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-modal p-md">
+          <div className="bg-secondary rounded-xl p-lg w-full max-w-md">
+            <div className="flex items-center gap-md mb-md">
+              <AlertTriangle className="w-6 h-6 text-warning flex-shrink-0" />
+              <h2 className="text-xl font-semibold">Média déjà présent ?</h2>
+            </div>
+            <p className="text-sm text-tertiary mb-md">
+              Un média avec ce titre existe déjà dans votre médiathèque :
+            </p>
+            <div className="space-y-sm mb-md">
+              {duplicateMatches.map(m => (
+                <div key={m.id} className="bg-tertiary rounded-lg px-md py-sm text-sm">
+                  <span className="font-medium">{m.title}</span>
+                  {' — '}
+                  {window.electronAPI.utils.getMediaTypeLabel(m.type_id)}
+                  {m.release_year ? ` • ${m.release_year}` : ''}
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-tertiary mb-lg">
+              Si c'est un format différent du même titre (ex: DVD et Blu-ray), vous pouvez l'ajouter quand même.
+            </p>
+            <div className="flex items-center justify-end gap-md">
+              <button
+                type="button"
+                onClick={() => setDuplicateMatches(null)}
+                className="bg-primary border rounded px-lg py-sm hover:bg-tertiary transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={performSave}
+                className="bg-accent text-white px-lg py-sm rounded hover:bg-accent-light transition-colors"
+              >
+                Ajouter quand même
               </button>
             </div>
           </div>

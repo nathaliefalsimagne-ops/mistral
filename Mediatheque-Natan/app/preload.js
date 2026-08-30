@@ -208,7 +208,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
 
     saveMediaPersons: (mediaId, persons) => ipcRenderer.invoke('save-media-persons', { mediaId, persons }),
-    getMediaPersons: (mediaId) => ipcRenderer.invoke('get-media-persons', mediaId)
+    getMediaPersons: (mediaId) => ipcRenderer.invoke('get-media-persons', mediaId),
+    saveMediaCategories: (mediaId, categories) => ipcRenderer.invoke('save-media-categories', { mediaId, categories }),
+    getMediaCategories: (mediaId) => ipcRenderer.invoke('get-media-categories', mediaId)
   },
   
   // Méthodes pour la configuration
