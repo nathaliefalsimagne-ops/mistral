@@ -908,6 +908,27 @@ function setupIPC() {
     }
   });
 
+  // Canal pour récupérer uniquement les genres d'un film déjà identifié
+  // (media.tmdb_id connu) - permet de réimporter les catégories d'un média
+  // ajouté avant que cet import n'existe, sans repasser par une recherche.
+  ipcMain.handle('get-tmdb-genres', async (event, { id, type = 'movie' }) => {
+    try {
+      const tmdbConfig = config.api?.tmdb;
+      if (!tmdbConfig?.enabled || !tmdbConfig?.apiKey) {
+        return { success: false, error: 'Configurez votre clé API TMDB dans Paramètres > APIs externes.' };
+      }
+
+      const response = await axios.get(`https://api.themoviedb.org/3/${type}/${id}`, {
+        params: { api_key: tmdbConfig.apiKey, language: 'fr-FR' }
+      });
+
+      return { success: true, data: { genres: (response.data.genres || []).map((g) => g.name) } };
+    } catch (error) {
+      log.error('Erreur lors de la récupération des genres TMDB:', error.message);
+      return { success: false, error: 'Erreur lors de la récupération des genres.' };
+    }
+  });
+
   // Canal pour rechercher dans MusicBrainz (pas de clé API nécessaire)
   ipcMain.handle('search-musicbrainz', async (event, { query }) => {
     try {

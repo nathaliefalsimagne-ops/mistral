@@ -252,6 +252,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   api: {
     searchTMDB: (query, type) => ipcRenderer.invoke('search-tmdb', { query, type }),
     getTmdbCredits: (id, type) => ipcRenderer.invoke('get-tmdb-credits', { id, type }),
+    getTmdbGenres: (id, type) => ipcRenderer.invoke('get-tmdb-genres', { id, type }),
     searchMusicBrainz: (query) => ipcRenderer.invoke('search-musicbrainz', { query })
   },
 

@@ -35,6 +35,27 @@ const MediaLibrary = () => {
   const [sortOrder, setSortOrder] = useState('asc'); // asc, desc
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [mediaCategoryMap, setMediaCategoryMap] = useState(new Map());
+
+  // Associations média -> catégories, pour le filtre par genre (une simple
+  // requête, plutôt que d'interroger media_categories pour chaque média).
+  useEffect(() => {
+    const loadMediaCategories = async () => {
+      const response = await window.electronAPI.db.query(
+        'SELECT media_id, category_id FROM media_categories',
+        []
+      );
+      if (response.success) {
+        const map = new Map();
+        for (const row of response.data) {
+          if (!map.has(row.media_id)) map.set(row.media_id, new Set());
+          map.get(row.media_id).add(row.category_id);
+        }
+        setMediaCategoryMap(map);
+      }
+    };
+    loadMediaCategories();
+  }, [media]);
 
   // Filtrer les médias selon le type
   const filteredByType = type 
@@ -57,8 +78,10 @@ const MediaLibrary = () => {
       return false;
     }
 
-    // Filtre par catégorie (à implémenter avec une jointure)
-    // if (filters.category) { ... }
+    // Filtre par catégorie
+    if (filters.category && !mediaCategoryMap.get(m.id)?.has(filters.category)) {
+      return false;
+    }
 
     // Filtre par présence de jaquette
     if (filters.hasJacket !== null && m.has_jacket !== (filters.hasJacket ? 1 : 0)) {
@@ -274,7 +297,7 @@ const MediaLibrary = () => {
             >
               <Filter className="w-5 h-5" />
               <span>Filtres</span>
-              {(filters.location || filters.hasJacket !== null) && (
+              {(filters.location || filters.category || filters.hasJacket !== null) && (
                 <span className="bg-accent text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {Object.values(filters).filter(f => f !== '' && f !== null).length}
                 </span>
@@ -316,7 +339,7 @@ const MediaLibrary = () => {
 
         {/* Filtres avancés */}
         {showFilters && (
-          <div className="mt-lg pt-lg border-t grid grid-cols-1 md:grid-cols-3 gap-lg">
+          <div className="mt-lg pt-lg border-t grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-lg">
             <div>
               <label className="block text-sm font-medium mb-sm">Emplacement</label>
               <select
@@ -333,6 +356,22 @@ const MediaLibrary = () => {
               </select>
             </div>
             
+            <div>
+              <label className="block text-sm font-medium mb-sm">Catégorie</label>
+              <select
+                value={filters.category || ''}
+                onChange={(e) => updateFilters({ category: e.target.value || null })}
+                className="w-full bg-primary border rounded px-sm py-xs focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                <option value="">Toutes les catégories</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-sm font-medium mb-sm">Type de média</label>
               <select
@@ -508,7 +547,7 @@ const MediaLibrary = () => {
       )}
 
       {/* Réinitialiser les filtres */}
-      {(filters.search || filters.location || filters.hasJacket !== null) && (
+      {(filters.search || filters.location || filters.category || filters.hasJacket !== null) && (
         <div className="text-center">
           <button
             onClick={resetFilters}

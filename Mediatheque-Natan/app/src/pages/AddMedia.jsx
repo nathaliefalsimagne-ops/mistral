@@ -62,6 +62,7 @@ const AddMedia = ({ isEdit = false }) => {
   const [newLocation, setNewLocation] = useState({ name: '', type_id: 1 });
   const [isCreatingLocation, setIsCreatingLocation] = useState(false);
   const [duplicateMatches, setDuplicateMatches] = useState(null);
+  const [isReimportingGenres, setIsReimportingGenres] = useState(false);
 
   // Charger les données si c'est une édition
   useEffect(() => {
@@ -204,6 +205,37 @@ const AddMedia = ({ isEdit = false }) => {
   const removeCategory = useCallback((id) => {
     setSelectedCategories(prev => prev.filter(cat => cat.id !== id));
   }, []);
+
+  // Réimporter les genres TMDB d'un média déjà identifié (ex: ajouté avant
+  // que l'import des catégories n'existe). Complète sans écraser les
+  // catégories déjà présentes (ex: ajoutées à la main).
+  const reimportGenres = useCallback(async () => {
+    if (!media.tmdb_id) return;
+
+    setIsReimportingGenres(true);
+    try {
+      const res = await window.electronAPI.api.getTmdbGenres(media.tmdb_id, 'movie');
+      if (res.success) {
+        const existingNames = new Set(selectedCategories.map(c => c.name.toLowerCase()));
+        const newGenres = res.data.genres.filter(name => !existingNames.has(name.toLowerCase()));
+        if (newGenres.length > 0) {
+          setSelectedCategories(prev => [
+            ...prev,
+            ...newGenres.map(name => ({ id: window.electronAPI.utils.generateId(), name }))
+          ]);
+          success(`${newGenres.length} genre(s) importé(s)`);
+        } else {
+          success('Genres déjà à jour');
+        }
+      } else {
+        showError(res.error || 'Erreur lors de la réimportation des genres');
+      }
+    } catch (err) {
+      showError(`Erreur: ${err.message}`);
+    } finally {
+      setIsReimportingGenres(false);
+    }
+  }, [media.tmdb_id, selectedCategories, success, showError]);
 
   // Créer un nouvel emplacement (ex: "Disque dur externe")
   const createNewLocation = useCallback(async () => {
@@ -713,13 +745,25 @@ const AddMedia = ({ isEdit = false }) => {
           <div>
             <div className="flex items-center justify-between mb-md">
               <h3 className="text-lg font-medium">Catégories</h3>
-              <button
-                type="button"
-                onClick={() => setShowCategoryModal(true)}
-                className="text-sm text-accent hover:underline"
-              >
-                + Ajouter
-              </button>
+              <div className="flex items-center gap-md">
+                {isEdit && media.tmdb_id && (
+                  <button
+                    type="button"
+                    onClick={reimportGenres}
+                    disabled={isReimportingGenres}
+                    className="text-sm text-accent hover:underline disabled:opacity-50"
+                  >
+                    {isReimportingGenres ? 'Réimport...' : 'Réimporter les genres'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(true)}
+                  className="text-sm text-accent hover:underline"
+                >
+                  + Ajouter
+                </button>
+              </div>
             </div>
             
             {selectedCategories.length > 0 ? (
