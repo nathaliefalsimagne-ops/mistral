@@ -137,6 +137,31 @@ function initDatabase() {
       "INSERT OR IGNORE INTO location_types (id, name, description) VALUES (6, 'Disque_Dur_Externe', 'Copie numérique stockée sur un disque dur externe')"
     );
 
+    // Avant ce correctif, aucun profil créé depuis l'écran "Qui regarde ?"
+    // ne pouvait jamais devenir Admin (toujours Membre par défaut, sans
+    // possibilité de le changer) : "Gérer les utilisateurs" restait à jamais
+    // inaccessible pour les bases déjà existantes. Si aucun Admin n'existe,
+    // promeut le profil le plus ancien - un no-op dès qu'un Admin existe.
+    db.get(
+      "SELECT COUNT(*) as count FROM users WHERE access_level_id = 3",
+      (err, row) => {
+        if (err) {
+          log.error('Erreur lors de la vérification des comptes Admin:', err);
+          return;
+        }
+        if (row.count === 0) {
+          db.run(
+            `UPDATE users SET access_level_id = 3 WHERE id = (
+               SELECT id FROM users ORDER BY created_at ASC LIMIT 1
+             )`,
+            (updateErr) => {
+              if (updateErr) log.error('Erreur lors de la promotion Admin:', updateErr);
+            }
+          );
+        }
+      }
+    );
+
     return db;
   } catch (error) {
     log.error('Erreur lors de l\'initialisation de la base de données:', error);
@@ -878,10 +903,19 @@ function setupIPC() {
       const id = uuid.v4();
       const pinHash = pin ? await bcrypt.hash(pin, 10) : null;
 
+      // Le formulaire de profil ne propose pas de choisir un niveau d'accès
+      // (toujours Membre par défaut) : sans ça, personne ne pourrait jamais
+      // devenir Admin et "Gérer les utilisateurs" resterait à jamais
+      // inaccessible. Le tout premier profil créé devient donc Admin.
+      const userCount = await new Promise((resolve, reject) => {
+        db.get('SELECT COUNT(*) as count FROM users', (err, row) => (err ? reject(err) : resolve(row.count)));
+      });
+      const finalAccessLevelId = userCount === 0 ? 3 : accessLevelId;
+
       await new Promise((resolve, reject) => {
         db.run(
           'INSERT INTO users (id, first_name, last_name, avatar_url, access_level_id, password_hash) VALUES (?, ?, ?, ?, ?, ?)',
-          [id, firstName.trim(), (lastName || '').trim(), avatarUrl || null, accessLevelId, pinHash],
+          [id, firstName.trim(), (lastName || '').trim(), avatarUrl || null, finalAccessLevelId, pinHash],
           (err) => (err ? reject(err) : resolve())
         );
       });
