@@ -23,7 +23,7 @@ import {
 const MediaDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getMediaById, deleteMedia, isLoading } = useDatabase();
+  const { getMediaById, deleteMedia, isLoading, locations, users } = useDatabase();
   const { success, error: showError } = useToast();
   const { user } = useAuth();
 
@@ -47,41 +47,26 @@ const MediaDetail = () => {
         if (response.success) {
           setMedia(response.data);
 
-          // Charger les données associées (simulées pour l'instant)
-          // Dans une vraie implémentation, on chargerait depuis la base
-          const mockPersons = [
-            { id: 'person-1', name: 'Christopher Nolan', role: 'Réalisateur', type: 1 },
-            { id: 'person-2', name: 'Leonardo DiCaprio', role: 'Acteur', type: 2 },
-            { id: 'person-3', name: 'Joseph Gordon-Levitt', role: 'Acteur', type: 2 }
-          ];
-          setPersons(mockPersons);
+          const personsResponse = await window.electronAPI.db.getMediaPersons(id);
+          setPersons(personsResponse.success ? personsResponse.data : []);
 
-          const mockCategories = [
-            { id: 'cat-1', name: 'Science-Fiction', relevance: 10 },
-            { id: 'cat-2', name: 'Action', relevance: 8 },
-            { id: 'cat-3', name: 'Thriller', relevance: 7 }
-          ];
-          setCategories(mockCategories);
+          const categoriesResponse = await window.electronAPI.db.getMediaCategories(id);
+          setCategories(categoriesResponse.success ? categoriesResponse.data : []);
 
-          const mockLocation = {
-            id: 'loc-1',
-            name: 'DVDthèque - Étagère A - Rang 3',
-            type_id: 1
-          };
-          setLocation(mockLocation);
+          setLocation(locations.find(l => l.id === response.data.location_id) || null);
 
-          const mockLoans = [
-            {
-              id: 'loan-1',
-              user_id: 'user-1',
-              user_name: 'Nathalie FALSIMAGNE',
-              loan_date: '2024-01-15',
-              due_date: '2024-02-15',
-              return_date: null,
-              user_rating: null
-            }
-          ];
-          setLoans(mockLoans);
+          const loansResponse = await window.electronAPI.db.getLoans({ mediaId: id });
+          if (loansResponse.success) {
+            setLoans(loansResponse.data.map(loan => {
+              const loanUser = users.find(u => u.id === loan.user_id);
+              return {
+                ...loan,
+                user_name: loanUser ? `${loanUser.first_name} ${loanUser.last_name}` : 'Utilisateur inconnu'
+              };
+            }));
+          } else {
+            setLoans([]);
+          }
 
           // Charger les médias similaires
           const allMediaResponse = await window.electronAPI.db.getMedia();
@@ -109,7 +94,7 @@ const MediaDetail = () => {
     };
 
     loadMediaData();
-  }, [id, getMediaById, showError, navigate]);
+  }, [id, getMediaById, showError, navigate, locations, users]);
 
   // Supprimer le média
   const handleDelete = useCallback(async () => {

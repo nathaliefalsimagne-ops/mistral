@@ -661,7 +661,7 @@ function setupIPC() {
   ipcMain.handle('get-media-categories', (event, mediaId) => {
     return new Promise((resolve) => {
       db.all(
-        `SELECT c.id, c.name
+        `SELECT c.id, c.name, mc.relevance
          FROM media_categories mc
          JOIN categories c ON c.id = mc.category_id
          WHERE mc.media_id = ?`,
