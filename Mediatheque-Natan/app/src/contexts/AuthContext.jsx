@@ -62,25 +62,15 @@ export const AuthProvider = ({ children, onLogin, onLogout }) => {
   }, [onLogout]);
 
   // Inscription (non utilisée pour l'instant)
-  const register = useCallback(async (userData) => {
-    try {
-      // const response = await window.electronAPI.auth.register(userData);
-      return { success: true };
-    } catch (error) {
-      console.error('Erreur lors de l\'inscription:', error);
-      return { success: false, error: error.message };
-    }
+  const register = useCallback(async (_userData) => {
+    // TODO: brancher sur le futur système de profils (window.electronAPI.auth.register)
+    return { success: true };
   }, []);
 
   // Récupérer le mot de passe
-  const forgotPassword = useCallback(async (email) => {
-    try {
-      // const response = await window.electronAPI.auth.forgotPassword(email);
-      return { success: true, message: 'Un email de réinitialisation a été envoyé' };
-    } catch (error) {
-      console.error('Erreur lors de la récupération du mot de passe:', error);
-      return { success: false, error: error.message };
-    }
+  const forgotPassword = useCallback(async (_email) => {
+    // TODO: brancher sur le futur système de profils (window.electronAPI.auth.forgotPassword)
+    return { success: true, message: 'Un email de réinitialisation a été envoyé' };
   }, []);
 
   // Mettre à jour le profil
@@ -96,14 +86,9 @@ export const AuthProvider = ({ children, onLogin, onLogout }) => {
   }, [user]);
 
   // Changer le mot de passe
-  const changePassword = useCallback(async (passwordData) => {
-    try {
-      // const response = await window.electronAPI.auth.changePassword(passwordData);
-      return { success: true, message: 'Mot de passe changé avec succès' };
-    } catch (error) {
-      console.error('Erreur lors du changement du mot de passe:', error);
-      return { success: false, error: error.message };
-    }
+  const changePassword = useCallback(async (_passwordData) => {
+    // TODO: brancher sur le futur système de profils (window.electronAPI.auth.changePassword)
+    return { success: true, message: 'Mot de passe changé avec succès' };
   }, []);
 
   const value = {

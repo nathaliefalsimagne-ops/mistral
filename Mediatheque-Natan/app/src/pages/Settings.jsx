@@ -19,7 +19,7 @@ import {
   HardDrive,
   Cloud,
   Globe,
-  Language,
+  Languages,
   HelpCircle,
   Bot,
   Cpu,
@@ -477,7 +477,7 @@ const GeneralSettings = ({ settings, onChange, onNestedChange, user }) => (
     </SettingSection>
 
     {/* Langue */}
-    <SettingSection title="Langue" icon={<Language className="w-5 h-5" />}>
+    <SettingSection title="Langue" icon={<Languages className="w-5 h-5" />}>
       <div className="space-y-md">
         <Select
           label="Langue de l'application"
@@ -839,6 +839,7 @@ const PrivacySettings = ({ settings, onChange }) => (
 
 // Onglet Intelligence Artificielle
 const AiSettings = ({ settings, onChange }) => {
+  const navigate = useNavigate();
   const { success, error: showError } = useToast();
   const [availableModels, setAvailableModels] = useState([]);
   const [isOllamaRunning, setIsOllamaRunning] = useState(null);

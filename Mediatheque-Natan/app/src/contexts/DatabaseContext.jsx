@@ -449,25 +449,15 @@ export const DatabaseProvider = ({ children }) => {
   }, [media, locations]);
 
   // Exporter les données
-  const exportData = useCallback(async (format = 'csv') => {
-    try {
-      // Cela serait implémenté avec un appel à l'API Electron
-      return { success: true, message: 'Export en cours...' };
-    } catch (err) {
-      console.error('Erreur lors de l\'export:', err);
-      return { success: false, error: err.message };
-    }
+  const exportData = useCallback(async (_format = 'csv') => {
+    // TODO: implémenter via un appel IPC dédié (window.electronAPI)
+    return { success: true, message: 'Export en cours...' };
   }, []);
 
   // Importer les données
-  const importData = useCallback(async (source, options = {}) => {
-    try {
-      // Cela serait implémenté avec un appel à l'API Electron
-      return { success: true, message: 'Import en cours...' };
-    } catch (err) {
-      console.error('Erreur lors de l\'import:', err);
-      return { success: false, error: err.message };
-    }
+  const importData = useCallback(async (_source, _options = {}) => {
+    // TODO: implémenter via un appel IPC dédié (window.electronAPI)
+    return { success: true, message: 'Import en cours...' };
   }, []);
 
   const value = {

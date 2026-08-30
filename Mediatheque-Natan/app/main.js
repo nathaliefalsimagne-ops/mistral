@@ -360,7 +360,7 @@ function createDatabaseSchema() {
 
     INSERT OR IGNORE INTO media_states (id, name, description) VALUES
     (1, 'Neuf', 'État neuf, jamais utilisé'),
-    (2, 'Bon', 'Bon état, quelques traces d\'usure'),
+    (2, 'Bon', 'Bon état, quelques traces d''usure'),
     (3, 'Moyen', 'État moyen, rayures visibles'),
     (4, 'Usagé', 'Usagé, nécessite vérification');
 

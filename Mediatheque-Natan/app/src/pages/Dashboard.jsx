@@ -18,6 +18,17 @@ import {
   Archive
 } from 'lucide-react';
 
+// Obtenir la couleur de l'état d'un média
+const getStateColor = (stateId) => {
+  switch (stateId) {
+    case 1: return 'bg-success';
+    case 2: return 'bg-info';
+    case 3: return 'bg-warning';
+    case 4: return 'bg-danger';
+    default: return 'bg-secondary';
+  }
+};
+
 const Dashboard = () => {
   const { media, locations, users, loans, isLoading, getStats } = useDatabase();
   const { user } = useAuth();
@@ -121,17 +132,6 @@ const Dashboard = () => {
       case 2: return <Film className="w-4 h-4" />;
       case 3: return <Music className="w-4 h-4" />;
       default: return <BookOpen className="w-4 h-4" />;
-    }
-  };
-
-  // Obtenir la couleur de l'état
-  const getStateColor = (stateId) => {
-    switch (stateId) {
-      case 1: return 'bg-success';
-      case 2: return 'bg-info';
-      case 3: return 'bg-warning';
-      case 4: return 'bg-danger';
-      default: return 'bg-secondary';
     }
   };
 

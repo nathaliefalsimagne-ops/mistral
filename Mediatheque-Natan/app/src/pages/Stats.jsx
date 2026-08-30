@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDatabase } from '../contexts/DatabaseContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { BarChart3, PieChart, TrendingUp, TrendingDown, Calendar, Clock, Users, Film, Disc, Music, BookOpen } from 'lucide-react';
+import { BarChart3, PieChart, TrendingUp, TrendingDown, Calendar, Clock, Users, Film, Disc, Music, BookOpen, Star } from 'lucide-react';
 
 // Importation de Chart.js
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
@@ -42,15 +42,18 @@ const Stats = () => {
       const addedDate = new Date(m.added_date || m.created_at);
       
       switch (timeRange) {
-        case 'week':
+        case 'week': {
           const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           return addedDate >= weekAgo;
-        case 'month':
+        }
+        case 'month': {
           const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
           return addedDate >= monthAgo;
-        case 'year':
+        }
+        case 'year': {
           const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
           return addedDate >= yearAgo;
+        }
         default:
           return true;
       }
@@ -491,10 +494,11 @@ const Stats = () => {
           )}
 
           {activeTab === 'distribution' && (
-            <DistributionTab 
-              dynamicStats={dynamicStats} 
-              chartData={chartData} 
+            <DistributionTab
+              dynamicStats={dynamicStats}
+              chartData={chartData}
               chartOptions={chartOptions}
+              media={media}
             />
           )}
 
@@ -643,7 +647,7 @@ const OverviewTab = ({ dynamicStats, loanStats, chartData, chartOptions, locatio
   </div>
 );
 
-const DistributionTab = ({ dynamicStats, chartData, chartOptions }) => (
+const DistributionTab = ({ dynamicStats, chartData, chartOptions, media }) => (
   <div className="space-y-lg">
     {/* Répartition par emplacement */}
     <div>

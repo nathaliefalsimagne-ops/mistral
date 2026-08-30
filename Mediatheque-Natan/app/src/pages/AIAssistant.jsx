@@ -10,7 +10,7 @@ import {
   Bot,
   User,
   Settings as SettingsIcon,
-  Stop,
+  StopCircle,
   Trash2,
   RefreshCw,
   Lightbulb,
@@ -19,7 +19,8 @@ import {
   Music,
   Disc,
   BarChart3,
-  HelpCircle
+  HelpCircle,
+  X
 } from 'lucide-react';
 
 const AIAssistant = () => {
@@ -477,7 +478,7 @@ const AIAssistant = () => {
                   onClick={handleCancel}
                   title="Annuler"
                 >
-                  <Stop size={18} />
+                  <StopCircle size={18} />
                 </button>
               ) : (
                 <>

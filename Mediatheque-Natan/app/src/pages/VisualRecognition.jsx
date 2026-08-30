@@ -13,7 +13,8 @@ import {
   Flashlight,
   Search,
   Upload,
-  Settings
+  Settings,
+  Barcode
 } from 'lucide-react';
 
 const VisualRecognition = () => {

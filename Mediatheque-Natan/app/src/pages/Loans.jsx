@@ -17,7 +17,9 @@ import {
   MoreVertical,
   User,
   CheckCircle,
-  XCircle
+  XCircle,
+  TrendingUp,
+  X
 } from 'lucide-react';
 
 const Loans = () => {

@@ -11,7 +11,7 @@ import {
   Shield,
   Globe,
   Mail,
-  GitHub,
+  Github,
   Linkedin,
   Twitter
 } from 'lucide-react';
@@ -273,7 +273,7 @@ const About = () => {
                 <span>LinkedIn</span>
               </button>
               <button className="w-full bg-primary border rounded px-md py-sm hover:bg-tertiary transition-colors flex items-center justify-center gap-sm">
-                <GitHub className="w-5 h-5" />
+                <Github className="w-5 h-5" />
                 <span>GitHub</span>
               </button>
             </div>

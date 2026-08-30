@@ -12,7 +12,8 @@ import {
   Image as ImageIcon,
   RotateCcw,
   Flashlight,
-  Settings
+  Settings,
+  Database
 } from 'lucide-react';
 
 const BarcodeScanner = () => {

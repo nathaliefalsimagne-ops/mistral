@@ -14,6 +14,16 @@ import {
   X
 } from 'lucide-react';
 
+// Obtenir l'icône du type de média
+const getTypeIcon = (mediaItem) => {
+  switch (mediaItem.type_id) {
+    case 1: return '📀';
+    case 2: return '🎬';
+    case 3: return '💿';
+    default: return '📚';
+  }
+};
+
 const MediaLibrary = () => {
   const { media, locations, categories, isLoading, filters, updateFilters, resetFilters, deleteMedia } = useDatabase();
   const { success, error: showError } = useToast();
@@ -132,16 +142,6 @@ const MediaLibrary = () => {
   const getCurrentTypeLabel = () => {
     if (!type) return 'Tous les médias';
     return type.charAt(0).toUpperCase() + type.slice(1);
-  };
-
-  // Obtenir l'icône du type de média
-  const getTypeIcon = (mediaItem) => {
-    switch (mediaItem.type_id) {
-      case 1: return '📀';
-      case 2: return '🎬';
-      case 3: return '💿';
-      default: return '📚';
-    }
   };
 
   // Obtenir la couleur de l'état

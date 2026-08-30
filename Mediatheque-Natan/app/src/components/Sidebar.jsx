@@ -12,7 +12,7 @@ import {
   BarChart3,
   Settings,
   Archive,
-  Scanner,
+  ScanBarcode,
   Eye,
   HelpCircle,
   Bot,
@@ -85,7 +85,7 @@ const Sidebar = ({ isCollapsed, onClose }) => {
     },
     {
       to: '/scan',
-      icon: Scanner,
+      icon: ScanBarcode,
       label: 'Scanner',
       badge: null
     },
