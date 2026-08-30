@@ -12,8 +12,10 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     // Chemin relatif requis pour que les chunks se chargent correctement une
     // fois l'app servie en file:// (mode production packagée), où l'inférence
-    // automatique du publicPath ne fonctionne pas de façon fiable.
-    publicPath: './',
+    // automatique du publicPath ne fonctionne pas de façon fiable. En
+    // développement, webpack-dev-server a besoin d'un publicPath absolu
+    // ('/') pour servir index.html à la racine — sinon "Cannot GET /".
+    publicPath: process.env.NODE_ENV === 'production' ? './' : '/',
     // `target: 'electron-renderer'` fait supposer à webpack un environnement
     // Node (son runtime interne de chargement de chunks référence `global`),
     // mais cette fenêtre a nodeIntegration désactivé : `global` n'existe pas
