@@ -10,6 +10,14 @@ const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const mobileScanServer = require('./mobileScanServer');
 
+// Fixe le nom utilisé par Electron pour le dossier de données utilisateur
+// (userData). Sans ça, Electron utilise le nom du package.json en
+// développement ("mediatheque-natan") mais le productName une fois
+// empaqueté ("Médiathèque NATAN") : deux dossiers différents, donc la
+// collection semblerait avoir disparu au premier lancement de la version
+// installée. Doit être appelé avant tout app.getPath('userData').
+app.setName('mediatheque-natan');
+
 // Configuration du logging (remplace electronLog par console)
 const log = console;
 
