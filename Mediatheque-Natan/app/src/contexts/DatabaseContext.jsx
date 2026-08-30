@@ -3,6 +3,21 @@ import { getAiService } from '../services';
 
 const DatabaseContext = createContext();
 
+// La table `users` stocke ses colonnes en snake_case (first_name, is_active,
+// access_level_id...), mais plusieurs pages (Users, Loans, Stats) lisent ces
+// objets en camelCase (user.firstName, user.isActive...), ce qui provoque un
+// plantage de rendu (`undefined.charAt`) faute de mapping. On ajoute les
+// alias camelCase sans retirer les champs d'origine, pour rester compatible
+// avec le code qui utilise déjà le snake_case (ex. Dashboard.jsx).
+const normalizeUser = (u) => ({
+  ...u,
+  firstName: u.first_name,
+  lastName: u.last_name,
+  accessLevel: u.access_level_id,
+  isActive: u.is_active,
+  avatarUrl: u.avatar_url
+});
+
 export const DatabaseProvider = ({ children }) => {
   const [media, setMedia] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -70,7 +85,7 @@ export const DatabaseProvider = ({ children }) => {
       // Charger les utilisateurs
       const usersResponse = await window.electronAPI.db.getUsers();
       if (usersResponse.success) {
-        setUsers(usersResponse.data);
+        setUsers(usersResponse.data.map(normalizeUser));
       }
       
       // Charger les emprunts

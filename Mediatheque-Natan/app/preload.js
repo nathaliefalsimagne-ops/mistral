@@ -1,12 +1,24 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Certains appels dans le code du renderer passent { sql, params } en premier
+// argument au lieu de (sql, params) positionnels. Un objet atterrissant à la
+// place d'une chaîne SQL dans le binding natif sqlite3 provoque un crash du
+// processus (pas une simple erreur JS) : on normalise donc les deux formes
+// ici plutôt que de compter sur chaque appelant.
+const normalizeSqlArgs = (sqlOrOptions, maybeParams) => {
+  if (sqlOrOptions && typeof sqlOrOptions === 'object') {
+    return { sql: sqlOrOptions.sql, params: sqlOrOptions.params || [] };
+  }
+  return { sql: sqlOrOptions, params: maybeParams || [] };
+};
+
 // Exposer des APIs sécurisées au renderer
 contextBridge.exposeInMainWorld('electronAPI', {
   // Méthodes pour la base de données
   db: {
-    query: (sql, params) => ipcRenderer.invoke('db-query', { sql, params }),
-    queryOne: (sql, params) => ipcRenderer.invoke('db-query-one', { sql, params }),
-    execute: (sql, params) => ipcRenderer.invoke('db-execute', { sql, params }),
+    query: (sql, params) => ipcRenderer.invoke('db-query', normalizeSqlArgs(sql, params)),
+    queryOne: (sql, params) => ipcRenderer.invoke('db-query-one', normalizeSqlArgs(sql, params)),
+    execute: (sql, params) => ipcRenderer.invoke('db-execute', normalizeSqlArgs(sql, params)),
     
     // Méthodes utilitaires pour la base de données
     getMedia: (filters = {}) => {

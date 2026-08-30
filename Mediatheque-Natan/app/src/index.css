@@ -26,6 +26,21 @@
   box-sizing: border-box;
 }
 
+/* Le Preflight de Tailwind est désactivé (voir tailwind.config.js) pour ne
+   pas perturber le rendu existant, mais ça laisse les <button> avec
+   l'apparence native du navigateur (fond gris/blanc) quand ils n'ont pas
+   de couleur de fond explicite. On neutralise juste ça, comme le ferait
+   Preflight, sans toucher au reste. */
+button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: inherit;
+}
+
 html, body {
   height: 100%;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
