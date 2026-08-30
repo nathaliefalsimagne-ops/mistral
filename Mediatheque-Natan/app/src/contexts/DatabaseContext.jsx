@@ -21,6 +21,7 @@ const normalizeUser = (u) => ({
 export const DatabaseProvider = ({ children }) => {
   const [media, setMedia] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [locationTypes, setLocationTypes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [persons, setPersons] = useState([]);
   const [users, setUsers] = useState([]);
@@ -69,7 +70,14 @@ export const DatabaseProvider = ({ children }) => {
       if (locationsResponse.success) {
         setLocations(locationsResponse.data);
       }
-      
+
+      // Charger les types d'emplacement
+      const locationTypesResponse = await window.electronAPI.db.getLocationTypes();
+      if (locationTypesResponse.success) {
+        setLocationTypes(locationTypesResponse.data);
+      }
+
+
       // Charger les catégories
       const categoriesResponse = await window.electronAPI.db.getCategories();
       if (categoriesResponse.success) {
@@ -111,6 +119,21 @@ export const DatabaseProvider = ({ children }) => {
   // Rafraîchir les données
   const refreshData = useCallback(() => {
     loadData();
+  }, [loadData]);
+
+  // Créer un emplacement
+  const createLocation = useCallback(async (locationData) => {
+    try {
+      const response = await window.electronAPI.db.addLocation(locationData);
+      if (response.success) {
+        await loadData();
+        return { success: true, data: { id: locationData.id } };
+      }
+      return { success: false, error: response.error };
+    } catch (err) {
+      console.error('Erreur lors de la création de l\'emplacement:', err);
+      return { success: false, error: err.message };
+    }
   }, [loadData]);
 
   // Ajouter un média
@@ -478,6 +501,7 @@ export const DatabaseProvider = ({ children }) => {
   const value = {
     media,
     locations,
+    locationTypes,
     categories,
     persons,
     users,
@@ -489,6 +513,7 @@ export const DatabaseProvider = ({ children }) => {
     isAiAvailable,
     loadData,
     refreshData,
+    createLocation,
     addMedia,
     updateMedia,
     deleteMedia,

@@ -120,7 +120,15 @@ function initDatabase() {
       // Vérifier la version du schéma
       checkDatabaseSchema();
     }
-    
+
+    // INSERT OR IGNORE, donc sans effet si la ligne existe déjà : sert à faire
+    // apparaître un nouveau type d'emplacement de référence (ajouté après coup)
+    // dans les bases créées avant lui, que checkDatabaseSchema() ne retouche
+    // pas tant que schema_version ne change pas.
+    db.run(
+      "INSERT OR IGNORE INTO location_types (id, name, description) VALUES (6, 'Disque_Dur_Externe', 'Copie numérique stockée sur un disque dur externe')"
+    );
+
     return db;
   } catch (error) {
     log.error('Erreur lors de l\'initialisation de la base de données:', error);
@@ -496,6 +504,87 @@ function setupIPC() {
     });
   });
 
+  // Canal pour associer des personnes (réalisateur, acteurs...) à un média.
+  // Remplace entièrement les associations existantes du média à chaque appel
+  // - plus simple que de diffier, et suffisant tant qu'il n'existe pas
+  // d'édition personne par personne côté UI. Réutilise une personne
+  // existante (même nom + même type) au lieu d'en recréer une à chaque fois.
+  ipcMain.handle('save-media-persons', async (event, { mediaId, persons }) => {
+    const dbGet = (sql, params) => new Promise((resolve, reject) => {
+      db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
+    });
+    const dbRun = (sql, params) => new Promise((resolve, reject) => {
+      db.run(sql, params, function (err) { return err ? reject(err) : resolve(this); });
+    });
+
+    try {
+      await dbRun('DELETE FROM media_persons WHERE media_id = ?', [mediaId]);
+
+      for (const person of persons || []) {
+        const name = (person.name || '').trim();
+        if (!name) continue;
+
+        const typeId = person.type || 1;
+        const spaceIndex = name.lastIndexOf(' ');
+        const firstName = spaceIndex > -1 ? name.slice(0, spaceIndex) : '';
+        const lastName = spaceIndex > -1 ? name.slice(spaceIndex + 1) : name;
+
+        const existing = await dbGet(
+          'SELECT id FROM persons WHERE IFNULL(first_name, \'\') = ? AND last_name = ? AND type_id = ?',
+          [firstName, lastName, typeId]
+        );
+
+        let personId = existing?.id;
+        if (!personId) {
+          personId = uuid.v4();
+          await dbRun(
+            'INSERT INTO persons (id, first_name, last_name, type_id) VALUES (?, ?, ?, ?)',
+            [personId, firstName || null, lastName, typeId]
+          );
+        }
+
+        await dbRun(
+          'INSERT OR IGNORE INTO media_persons (media_id, person_id, role) VALUES (?, ?, ?)',
+          [mediaId, personId, person.role || '']
+        );
+      }
+
+      return { success: true };
+    } catch (error) {
+      log.error('Erreur lors de l\'enregistrement des personnes associées:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour récupérer les personnes associées à un média (édition)
+  ipcMain.handle('get-media-persons', (event, mediaId) => {
+    return new Promise((resolve) => {
+      db.all(
+        `SELECT p.id, p.first_name, p.last_name, p.type_id, mp.role
+         FROM media_persons mp
+         JOIN persons p ON p.id = mp.person_id
+         WHERE mp.media_id = ?`,
+        [mediaId],
+        (err, rows) => {
+          if (err) {
+            log.error('Erreur lors de la récupération des personnes:', err);
+            resolve({ success: false, error: err.message });
+          } else {
+            resolve({
+              success: true,
+              data: rows.map((r) => ({
+                id: r.id,
+                name: [r.first_name, r.last_name].filter(Boolean).join(' '),
+                role: r.role,
+                type: r.type_id
+              }))
+            });
+          }
+        }
+      );
+    });
+  });
+
   // Canal pour obtenir la configuration
   ipcMain.handle('get-config', () => {
     return { success: true, data: config };
@@ -690,6 +779,37 @@ function setupIPC() {
         ? 'Clé API TMDB invalide.'
         : 'Erreur lors de la recherche TMDB (vérifiez votre connexion internet).';
       return { success: false, error: message };
+    }
+  });
+
+  // Canal pour récupérer le casting (réalisateur, scénaristes, acteurs) d'un
+  // résultat TMDB. Fait exprès un appel séparé de search-tmdb (déclenché
+  // seulement quand l'utilisateur choisit un résultat) pour ne pas
+  // multiplier les appels API sur les résultats jamais sélectionnés.
+  ipcMain.handle('get-tmdb-credits', async (event, { id, type = 'movie' }) => {
+    try {
+      const tmdbConfig = config.api?.tmdb;
+      if (!tmdbConfig?.enabled || !tmdbConfig?.apiKey) {
+        return { success: false, error: 'Configurez votre clé API TMDB dans Paramètres > APIs externes.' };
+      }
+
+      const response = await axios.get(`https://api.themoviedb.org/3/${type}/${id}/credits`, {
+        params: { api_key: tmdbConfig.apiKey, language: 'fr-FR' }
+      });
+
+      const crew = response.data.crew || [];
+      const directors = crew.filter((c) => c.job === 'Director').map((c) => c.name);
+      const writers = crew
+        .filter((c) => c.job === 'Writer' || c.job === 'Screenplay')
+        .map((c) => c.name);
+      const cast = (response.data.cast || [])
+        .slice(0, 10)
+        .map((c) => ({ name: c.name, character: c.character }));
+
+      return { success: true, data: { directors, writers, cast } };
+    } catch (error) {
+      log.error('Erreur lors de la récupération du casting TMDB:', error.message);
+      return { success: false, error: 'Erreur lors de la récupération du casting.' };
     }
   });
 

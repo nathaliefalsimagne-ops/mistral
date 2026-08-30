@@ -264,7 +264,8 @@ const SCHEMA_SQL = `
     (2, 'CDthèque_Sans_Jacquettes', 'Emplacement pour CDs sans jaquettes'),
     (3, 'Archivage', 'Archives, accès peu fréquent'),
     (4, 'En_Prêt', 'Médias actuellement en prêt'),
-    (5, 'En_Réparation', 'Médias en cours de réparation');
+    (5, 'En_Réparation', 'Médias en cours de réparation'),
+    (6, 'Disque_Dur_Externe', 'Copie numérique stockée sur un disque dur externe');
 
     INSERT OR IGNORE INTO user_access_levels (id, name, description) VALUES
     (1, 'Invité', 'Accès limité, consultation uniquement'),

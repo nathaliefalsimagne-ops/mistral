@@ -76,7 +76,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
         sql: 'SELECT * FROM locations ORDER BY name'
       });
     },
-    
+
+    getLocationTypes: () => {
+      return ipcRenderer.invoke('db-query', {
+        sql: 'SELECT * FROM location_types ORDER BY name'
+      });
+    },
+
+    addLocation: (location) => {
+      return ipcRenderer.invoke('db-execute', {
+        sql: `INSERT INTO locations (id, name, type_id, capacity_max, description)
+              VALUES (?, ?, ?, ?, ?)`,
+        params: [
+          location.id, location.name, location.type_id,
+          location.capacity_max || null, location.description || null
+        ]
+      });
+    },
+
+
     getCategories: () => {
       return ipcRenderer.invoke('db-query', {
         sql: 'SELECT * FROM categories ORDER BY name'
@@ -177,7 +195,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         sql: 'DELETE FROM media WHERE id = ?',
         params: [id]
       });
-    }
+    },
+
+    saveMediaPersons: (mediaId, persons) => ipcRenderer.invoke('save-media-persons', { mediaId, persons }),
+    getMediaPersons: (mediaId) => ipcRenderer.invoke('get-media-persons', mediaId)
   },
   
   // Méthodes pour la configuration
@@ -218,6 +239,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Méthodes pour les APIs externes
   api: {
     searchTMDB: (query, type) => ipcRenderer.invoke('search-tmdb', { query, type }),
+    getTmdbCredits: (id, type) => ipcRenderer.invoke('get-tmdb-credits', { id, type }),
     searchMusicBrainz: (query) => ipcRenderer.invoke('search-musicbrainz', { query })
   },
 

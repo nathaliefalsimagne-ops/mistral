@@ -24,7 +24,7 @@ import {
 const AddMedia = ({ isEdit = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getMediaById, addMedia, updateMedia, locations, categories, persons } = useDatabase();
+  const { getMediaById, addMedia, updateMedia, locations, locationTypes, categories, persons, createLocation } = useDatabase();
   const { success, error: showError } = useToast();
 
   const [media, setMedia] = useState({
@@ -54,8 +54,11 @@ const AddMedia = ({ isEdit = false }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showPersonModal, setShowPersonModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [newPerson, setNewPerson] = useState({ name: '', role: '', type: 1 });
+  const [newLocation, setNewLocation] = useState({ name: '', type_id: 1 });
+  const [isCreatingLocation, setIsCreatingLocation] = useState(false);
 
   // Charger les données si c'est une édition
   useEffect(() => {
@@ -66,18 +69,17 @@ const AddMedia = ({ isEdit = false }) => {
           if (response.success) {
             setMedia(response.data);
             
-            // Charger les catégories et personnes associées (simulées)
-            // Dans une vraie implémentation, on chargerait depuis la base
+            // TODO: les catégories associées à un média ne sont pas encore
+            // persistées (media_categories n'est jamais écrite) - à traiter
+            // séparément, comme ça vient de l'être pour les personnes.
             const mockCategories = [
               { id: 'cat-1', name: 'Science-Fiction' },
               { id: 'cat-2', name: 'Action' }
             ];
             setSelectedCategories(mockCategories);
 
-            const mockPersons = [
-              { id: 'person-1', name: 'Christopher Nolan', role: 'Réalisateur', type: 1 }
-            ];
-            setSelectedPersons(mockPersons);
+            const personsResponse = await window.electronAPI.db.getMediaPersons(id);
+            setSelectedPersons(personsResponse.success ? personsResponse.data : []);
           } else {
             showError('Média introuvable');
             navigate('/404');
@@ -120,7 +122,7 @@ const AddMedia = ({ isEdit = false }) => {
   }, [searchQuery, showError]);
 
   // Sélectionner un résultat de recherche
-  const selectSearchResult = useCallback((result) => {
+  const selectSearchResult = useCallback(async (result) => {
     setMedia(prev => ({
       ...prev,
       title: result.title,
@@ -136,6 +138,31 @@ const AddMedia = ({ isEdit = false }) => {
     setSearchResults([]);
     setSearchQuery('');
     success('Informations importées depuis TMDB');
+
+    // Récupérer le casting (réalisateur, scénaristes, acteurs) en tâche de
+    // fond : un échec ici (ex: clé API désactivée entre temps) ne doit pas
+    // bloquer l'import des informations principales, déjà appliquées.
+    try {
+      const creditsResponse = await window.electronAPI.api.getTmdbCredits(result.id, 'movie');
+      if (creditsResponse.success) {
+        const { directors, writers, cast } = creditsResponse.data;
+        const importedPersons = [
+          ...directors.map(name => ({ id: window.electronAPI.utils.generateId(), name, role: 'Réalisateur', type: 1 })),
+          ...writers.map(name => ({ id: window.electronAPI.utils.generateId(), name, role: 'Scénariste', type: 7 })),
+          ...cast.map(({ name, character }) => ({
+            id: window.electronAPI.utils.generateId(),
+            name,
+            role: character || 'Acteur',
+            type: 2
+          }))
+        ];
+        if (importedPersons.length > 0) {
+          setSelectedPersons(importedPersons);
+        }
+      }
+    } catch (err) {
+      console.error('Erreur lors de la récupération du casting TMDB:', err);
+    }
   }, [success]);
 
   // Gérer le changement des champs
@@ -167,6 +194,29 @@ const AddMedia = ({ isEdit = false }) => {
   const removeCategory = useCallback((id) => {
     setSelectedCategories(prev => prev.filter(cat => cat.id !== id));
   }, []);
+
+  // Créer un nouvel emplacement (ex: "Disque dur externe")
+  const createNewLocation = useCallback(async () => {
+    if (!newLocation.name.trim()) return;
+
+    setIsCreatingLocation(true);
+    const locationId = window.electronAPI.utils.generateId();
+    const res = await createLocation({
+      id: locationId,
+      name: newLocation.name,
+      type_id: newLocation.type_id
+    });
+    setIsCreatingLocation(false);
+
+    if (res.success) {
+      setMedia(prev => ({ ...prev, location_id: locationId }));
+      setNewLocation({ name: '', type_id: 1 });
+      setShowLocationModal(false);
+      success('Emplacement créé');
+    } else {
+      showError(res.error || 'Erreur lors de la création de l\'emplacement');
+    }
+  }, [newLocation, createLocation, success, showError]);
 
   // Ajouter une personne
   const addPerson = useCallback(() => {
@@ -212,6 +262,15 @@ const AddMedia = ({ isEdit = false }) => {
       }
 
       if (response.success) {
+        // Les personnes associées (importées de TMDB ou ajoutées à la main)
+        // ne sont pas incluses dans addMedia/updateMedia : on les enregistre
+        // séparément via la table de liaison media_persons.
+        try {
+          await window.electronAPI.db.saveMediaPersons(media.id, selectedPersons);
+        } catch (personsErr) {
+          console.error('Erreur lors de l\'enregistrement des personnes:', personsErr);
+        }
+
         success(`Média ${isEdit ? 'mis à jour' : 'ajouté'} avec succès`);
         navigate(`/media/detail/${response.data?.lastInsertRowid || media.id}`);
       } else {
@@ -223,7 +282,7 @@ const AddMedia = ({ isEdit = false }) => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [media, isEdit, addMedia, updateMedia, showError, success, navigate]);
+  }, [media, isEdit, addMedia, updateMedia, selectedPersons, showError, success, navigate]);
 
   // Scanner un code-barres
   const handleScanBarcode = useCallback(() => {
@@ -429,19 +488,34 @@ const AddMedia = ({ isEdit = false }) => {
               <label className="block text-sm font-medium mb-sm">
                 Emplacement
               </label>
-              <select
-                name="location_id"
-                value={media.location_id || ''}
-                onChange={handleChange}
-                className="w-full bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
-              >
-                <option value="">Sélectionnez un emplacement</option>
-                {locations.map(location => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-sm">
+                <select
+                  name="location_id"
+                  value={media.location_id || ''}
+                  onChange={handleChange}
+                  className="w-full bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="">Sélectionnez un emplacement</option>
+                  {locations.map(location => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowLocationModal(true)}
+                  className="shrink-0 text-sm text-accent hover:underline whitespace-nowrap"
+                  title="Créer un nouvel emplacement (ex: Disque dur externe)"
+                >
+                  + Nouveau
+                </button>
+              </div>
+              {locations.length === 0 && (
+                <p className="text-xs text-tertiary mt-xs">
+                  Aucun emplacement encore créé — clique sur "+ Nouveau" pour en créer un (ex: étagère, disque dur externe).
+                </p>
+              )}
             </div>
 
             {/* Avec jaquette */}
@@ -873,6 +947,69 @@ const AddMedia = ({ isEdit = false }) => {
                 disabled={!newPerson.name.trim()}
               >
                 Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal pour créer un emplacement */}
+      {showLocationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-modal p-md">
+          <div className="bg-secondary rounded-xl p-lg w-full max-w-md">
+            <div className="flex items-center justify-between mb-lg">
+              <h2 className="text-xl font-semibold">Nouvel emplacement</h2>
+              <button
+                onClick={() => setShowLocationModal(false)}
+                className="text-tertiary hover:text-primary transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-md">
+              <div>
+                <label className="block text-sm font-medium mb-sm">
+                  Nom *
+                </label>
+                <input
+                  type="text"
+                  value={newLocation.name}
+                  onChange={(e) => setNewLocation(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Ex: Disque dur externe, Étagère salon..."
+                  className="w-full bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-sm">
+                  Type
+                </label>
+                <select
+                  value={newLocation.type_id}
+                  onChange={(e) => setNewLocation(prev => ({ ...prev, type_id: parseInt(e.target.value) }))}
+                  className="w-full bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  {locationTypes.map(type => (
+                    <option key={type.id} value={type.id}>
+                      {type.name.replace(/_/g, ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="mt-lg flex items-center justify-end gap-md">
+              <button
+                onClick={() => setShowLocationModal(false)}
+                className="bg-primary border rounded px-lg py-sm hover:bg-tertiary transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={createNewLocation}
+                className="bg-accent text-white px-lg py-sm rounded hover:bg-accent-light transition-colors disabled:opacity-50"
+                disabled={!newLocation.name.trim() || isCreatingLocation}
+              >
+                Créer
               </button>
             </div>
           </div>
