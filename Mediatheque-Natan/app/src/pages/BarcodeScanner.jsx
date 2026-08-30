@@ -33,6 +33,10 @@ const BarcodeScanner = () => {
   const [cameraFacing, setCameraFacing] = useState('environment'); // environment ou user
   const [mobileSession, setMobileSession] = useState(null);
   const [isStartingMobileScan, setIsStartingMobileScan] = useState(false);
+  // Electron ne supporte pas window.prompt() ("prompt() is and will not be
+  // supported") : la saisie manuelle passe par une petite modale maison.
+  const [manualEntry, setManualEntry] = useState(null); // 'add' | 'search' | null
+  const [manualEntryValue, setManualEntryValue] = useState('');
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -311,6 +315,22 @@ const BarcodeScanner = () => {
     navigate(`/media/add?barcode=${encodeURIComponent(barcode)}`);
   }, [barcode, navigate]);
 
+  // Valider la saisie manuelle (remplace window.prompt, non supporté par Electron)
+  const submitManualEntry = useCallback(() => {
+    const value = manualEntryValue.trim();
+    if (!value) return;
+
+    if (manualEntry === 'search') {
+      navigate(`/search?q=${encodeURIComponent(value)}`);
+    } else {
+      setBarcode(value);
+      handleBarcodeDetected(value);
+    }
+
+    setManualEntry(null);
+    setManualEntryValue('');
+  }, [manualEntry, manualEntryValue, navigate, handleBarcodeDetected]);
+
   // Aller à la fiche du média
   const goToMediaDetail = useCallback(() => {
     if (mediaInfo?.data?.id) {
@@ -527,13 +547,7 @@ const BarcodeScanner = () => {
             icon={<Barcode className="w-6 h-6" />}
             title="Saisir manuellement"
             description="Entrez un code-barres manuellement"
-            onClick={() => {
-              const code = prompt('Entrez le code-barres:');
-              if (code) {
-                setBarcode(code);
-                handleBarcodeDetected(code);
-              }
-            }}
+            onClick={() => { setManualEntryValue(''); setManualEntry('add'); }}
           />
           
           <ActionCard
@@ -554,12 +568,7 @@ const BarcodeScanner = () => {
             icon={<Database className="w-6 h-6" />}
             title="Rechercher dans la base"
             description="Rechercher un code-barres existant"
-            onClick={() => {
-              const code = prompt('Entrez le code-barres à rechercher:');
-              if (code) {
-                navigate(`/search?q=${encodeURIComponent(code)}`);
-              }
-            }}
+            onClick={() => { setManualEntryValue(''); setManualEntry('search'); }}
           />
         </div>
       </div>
@@ -585,6 +594,46 @@ const BarcodeScanner = () => {
           />
         </div>
       </div>
+
+      {/* Modale de saisie manuelle (window.prompt n'est pas supporté par Electron) */}
+      {manualEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-modal p-md">
+          <form
+            onSubmit={(e) => { e.preventDefault(); submitManualEntry(); }}
+            className="bg-secondary rounded-xl p-lg w-full max-w-sm space-y-md"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">
+                {manualEntry === 'search' ? 'Rechercher un code-barres' : 'Saisir un code-barres'}
+              </h3>
+              <button type="button" onClick={() => setManualEntry(null)} className="text-tertiary hover:text-primary transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoFocus
+              value={manualEntryValue}
+              onChange={(e) => setManualEntryValue(e.target.value)}
+              placeholder="Ex: 8712609603040"
+              className="w-full bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            <div className="flex items-center justify-end gap-md">
+              <button type="button" onClick={() => setManualEntry(null)} className="px-lg py-sm rounded hover:bg-tertiary transition-colors">
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={!manualEntryValue.trim()}
+                className="bg-accent text-white px-lg py-sm rounded hover:bg-accent-light transition-colors disabled:opacity-50"
+              >
+                {manualEntry === 'search' ? 'Rechercher' : 'Valider'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Modale QR code pour le scan depuis mobile */}
       {(mobileSession || isStartingMobileScan) && (
