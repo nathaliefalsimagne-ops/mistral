@@ -262,8 +262,8 @@ const SCHEMA_SQL = `
     (8, 'Producteur');
 
     INSERT OR IGNORE INTO location_types (id, name, description) VALUES
-    (1, 'DVDthèque_Jacquettes', 'Emplacement pour DVDs avec jaquettes et codes-barres'),
-    (2, 'CDthèque_Sans_Jacquettes', 'Emplacement pour CDs sans jaquettes'),
+    (1, 'DVDthèque', 'Emplacement pour DVDs et Blu-rays avec codes-barres'),
+    (2, 'CDthèque', 'Emplacement pour CDs'),
     (3, 'Archivage', 'Archives, accès peu fréquent'),
     (4, 'En_Prêt', 'Médias actuellement en prêt'),
     (5, 'En_Réparation', 'Médias en cours de réparation'),

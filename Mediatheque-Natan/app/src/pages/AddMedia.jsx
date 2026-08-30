@@ -111,6 +111,23 @@ const AddMedia = ({ isEdit = false }) => {
     }
   }, [isEdit, searchParams]);
 
+  // Pré-remplir automatiquement depuis un film TMDB déjà identifié
+  // (ex: clic sur un film manquant d'une collection depuis le tableau de
+  // bord, transmis via ?tmdbId=...) - évite d'avoir à ressaisir le titre.
+  useEffect(() => {
+    const tmdbId = searchParams.get('tmdbId');
+    if (!isEdit && tmdbId) {
+      window.electronAPI.api.getTmdbDetails(tmdbId, 'movie').then((response) => {
+        if (response.success) {
+          selectSearchResult(response.result);
+        } else {
+          showError(response.error || 'Erreur lors de la récupération du film TMDB');
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, searchParams]);
+
   // Rechercher dans TMDB
   const searchInTMDB = useCallback(async () => {
     if (!searchQuery.trim()) return;

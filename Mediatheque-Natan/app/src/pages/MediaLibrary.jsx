@@ -83,11 +83,6 @@ const MediaLibrary = () => {
       return false;
     }
 
-    // Filtre par présence de jaquette
-    if (filters.hasJacket !== null && m.has_jacket !== (filters.hasJacket ? 1 : 0)) {
-      return false;
-    }
-
     return true;
   });
 
@@ -297,7 +292,7 @@ const MediaLibrary = () => {
             >
               <Filter className="w-5 h-5" />
               <span>Filtres</span>
-              {(filters.location || filters.category || filters.hasJacket !== null) && (
+              {(filters.location || filters.category) && (
                 <span className="bg-accent text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {Object.values(filters).filter(f => f !== '' && f !== null).length}
                 </span>
@@ -389,20 +384,6 @@ const MediaLibrary = () => {
               </select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium mb-sm">Avec jaquette</label>
-              <select
-                value={filters.hasJacket === null ? '' : filters.hasJacket ? 'true' : 'false'}
-                onChange={(e) => updateFilters({ 
-                  hasJacket: e.target.value === '' ? null : e.target.value === 'true' 
-                })}
-                className="w-full bg-primary border rounded px-sm py-xs focus:outline-none focus:ring-2 focus:ring-accent"
-              >
-                <option value="">Tous</option>
-                <option value="true">Avec jaquette</option>
-                <option value="false">Sans jaquette</option>
-              </select>
-            </div>
           </div>
         )}
       </div>
@@ -547,7 +528,7 @@ const MediaLibrary = () => {
       )}
 
       {/* Réinitialiser les filtres */}
-      {(filters.search || filters.location || filters.category || filters.hasJacket !== null) && (
+      {(filters.search || filters.location || filters.category) && (
         <div className="text-center">
           <button
             onClick={resetFilters}
@@ -608,11 +589,6 @@ const MediaCard = ({ media, isSelected, onSelect }) => {
 
         {/* Badges */}
         <div className="absolute top-sm right-sm flex flex-col gap-xs">
-          {!media.has_jacket && (
-            <span className="bg-black bg-opacity-50 text-white text-xs px-sm py-xs rounded">
-              Sans jaquette
-            </span>
-          )}
           {media.state_id && (
             <span className={`text-white text-xs px-sm py-xs rounded ${getStateColor(media.state_id)}`}>
               {window.electronAPI.utils.getMediaStateLabel(media.state_id)}

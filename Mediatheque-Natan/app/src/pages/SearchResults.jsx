@@ -187,12 +187,6 @@ const SearchResults = () => {
           >
             CDs uniquement
           </button>
-          <button
-            onClick={() => handleSearch(`hasJacket:false ${searchQuery}`)}
-            className="text-sm text-tertiary hover:text-primary transition-colors"
-          >
-            Sans jaquette
-          </button>
         </div>
       </div>
 
@@ -336,11 +330,6 @@ const MediaCard = ({ media, searchQuery }) => {
 
           {/* Badges */}
           <div className="absolute top-sm right-sm flex flex-col gap-xs">
-            {!media.has_jacket && (
-              <span className="bg-black bg-opacity-50 text-white text-xs px-sm py-xs rounded">
-                Sans jaquette
-              </span>
-            )}
             {media.state_id && (
               <span className={`text-white text-xs px-sm py-xs rounded ${getStateColor(media.state_id)}`}>
                 {window.electronAPI.utils.getMediaStateLabel(media.state_id)}

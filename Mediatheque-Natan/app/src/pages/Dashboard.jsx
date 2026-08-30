@@ -127,8 +127,6 @@ const Dashboard = () => {
   const dvdCount = media.filter(m => m.type_id === 1).length;
   const blurayCount = media.filter(m => m.type_id === 2).length;
   const cdCount = media.filter(m => m.type_id === 3).length;
-  const withJacketCount = media.filter(m => m.has_jacket === 1).length;
-  const withoutJacketCount = media.filter(m => m.has_jacket === 0).length;
 
   // Calculer les médias en prêt
   const onLoanCount = loans.filter(l => !l.return_date).length;
@@ -239,54 +237,30 @@ const Dashboard = () => {
             </Link>
           </div>
           
-          <div className="grid grid-cols-2 gap-lg">
-            {/* Par type */}
-            <div>
-              <h3 className="font-medium mb-md">Par type</h3>
-              <div className="space-y-sm">
-                <ProgressBar
-                  label="DVDs"
-                  value={dvdCount}
-                  max={totalMedia}
-                  color="bg-info"
-                  percentage={Math.round((dvdCount / totalMedia) * 100)}
-                />
-                <ProgressBar
-                  label="Blu-rays"
-                  value={blurayCount}
-                  max={totalMedia}
-                  color="bg-success"
-                  percentage={Math.round((blurayCount / totalMedia) * 100)}
-                />
-                <ProgressBar
-                  label="CDs"
-                  value={cdCount}
-                  max={totalMedia}
-                  color="bg-warning"
-                  percentage={Math.round((cdCount / totalMedia) * 100)}
-                />
-              </div>
-            </div>
-
-            {/* Par rangement */}
-            <div>
-              <h3 className="font-medium mb-md">Par rangement</h3>
-              <div className="space-y-sm">
-                <ProgressBar
-                  label="Avec jaquette"
-                  value={withJacketCount}
-                  max={totalMedia}
-                  color="bg-primary"
-                  percentage={Math.round((withJacketCount / totalMedia) * 100)}
-                />
-                <ProgressBar
-                  label="Sans jaquette"
-                  value={withoutJacketCount}
-                  max={totalMedia}
-                  color="bg-secondary"
-                  percentage={Math.round((withoutJacketCount / totalMedia) * 100)}
-                />
-              </div>
+          <div>
+            <h3 className="font-medium mb-md">Par type</h3>
+            <div className="space-y-sm">
+              <ProgressBar
+                label="DVDs"
+                value={dvdCount}
+                max={totalMedia}
+                color="bg-info"
+                percentage={Math.round((dvdCount / totalMedia) * 100)}
+              />
+              <ProgressBar
+                label="Blu-rays"
+                value={blurayCount}
+                max={totalMedia}
+                color="bg-success"
+                percentage={Math.round((blurayCount / totalMedia) * 100)}
+              />
+              <ProgressBar
+                label="CDs"
+                value={cdCount}
+                max={totalMedia}
+                color="bg-warning"
+                percentage={Math.round((cdCount / totalMedia) * 100)}
+              />
             </div>
           </div>
 
@@ -364,7 +338,7 @@ const Dashboard = () => {
                   {gap.missing.map((film) => (
                     <Link
                       key={film.id}
-                      to="/media/add"
+                      to={`/media/add?tmdbId=${film.id}`}
                       className="flex items-center gap-xs bg-tertiary rounded-lg px-md py-sm text-sm hover:bg-accent hover:text-white transition-colors"
                     >
                       <Plus size={14} />
@@ -568,14 +542,6 @@ const MediaCard = ({ media, showType = false, showState = false }) => (
         </div>
       )}
 
-      {/* Badge sans jaquette */}
-      {!media.has_jacket && (
-        <div className="absolute bottom-sm left-sm">
-          <span className="bg-black/60 backdrop-blur-sm text-white text-xs px-sm py-xs rounded">
-            Sans jaquette
-          </span>
-        </div>
-      )}
     </div>
 
     <div className="min-w-0">

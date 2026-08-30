@@ -32,7 +32,6 @@ export const DatabaseProvider = ({ children }) => {
     type: null,
     category: null,
     location: null,
-    hasJacket: null,
     search: ''
   });
   const [aiService, setAiService] = useState(null);
@@ -434,7 +433,6 @@ export const DatabaseProvider = ({ children }) => {
       type: null,
       category: null,
       location: null,
-      hasJacket: null,
       search: ''
     });
   }, []);

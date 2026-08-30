@@ -23,7 +23,7 @@ import {
 const MediaDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getMediaById, deleteMedia, isLoading, locations, users } = useDatabase();
+  const { getMediaById, deleteMedia, isLoading, locations, locationTypes, users } = useDatabase();
   const { success, error: showError } = useToast();
   const { user } = useAuth();
 
@@ -289,13 +289,6 @@ const MediaDetail = () => {
                 )}
               </div>
 
-              {!media.has_jacket && (
-                <div className="absolute bottom-sm left-sm">
-                  <span className="bg-black bg-opacity-50 text-white text-xs px-sm py-xs rounded">
-                    Sans jaquette
-                  </span>
-                </div>
-              )}
             </div>
 
             {/* Actions */}
@@ -324,9 +317,12 @@ const MediaDetail = () => {
                     <button
                       key={star}
                       onClick={() => handleRatingChange(star)}
-                      className={`text-2xl ${star <= (media.average_rating || 0) ? 'text-yellow-400' : 'text-tertiary'}`}
+                      className={star <= (media.average_rating || 0) ? 'text-yellow-400' : 'text-tertiary'}
                     >
-                      ⭐
+                      <Star
+                        className="w-5 h-5"
+                        fill={star <= (media.average_rating || 0) ? 'currentColor' : 'none'}
+                      />
                     </button>
                   ))}
                 </div>
@@ -456,7 +452,7 @@ const MediaDetail = () => {
                     <div>
                       <p className="font-medium">{location.name}</p>
                       <p className="text-sm text-tertiary">
-                        {location.type_id === 1 ? 'DVDthèque avec jaquettes' : 'CDthèque sans jaquettes'}
+                        {locationTypes.find(t => t.id === location.type_id)?.description || ''}
                       </p>
                     </div>
                   </div>

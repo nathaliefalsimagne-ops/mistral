@@ -169,6 +169,12 @@ function initDatabase() {
     db.run('ALTER TABLE media ADD COLUMN tmdb_collection_id INTEGER', () => {});
     db.run('ALTER TABLE media ADD COLUMN tmdb_collection_name TEXT', () => {});
 
+    // Renomme les emplacements existants créés avant le retrait de l'indicateur
+    // "jaquette" (has_jacket) - le nom continuait sinon d'afficher "Jacquettes"
+    // dans le sélecteur de type d'emplacement.
+    db.run("UPDATE location_types SET name = 'DVDthèque', description = 'Emplacement pour DVDs et Blu-rays avec codes-barres' WHERE id = 1 AND name = 'DVDthèque_Jacquettes'", () => {});
+    db.run("UPDATE location_types SET name = 'CDthèque', description = 'Emplacement pour CDs' WHERE id = 2 AND name = 'CDthèque_Sans_Jacquettes'", () => {});
+
     return db;
   } catch (error) {
     log.error('Erreur lors de l\'initialisation de la base de données:', error);
@@ -885,6 +891,45 @@ function setupIPC() {
         ? 'Clé API TMDB invalide.'
         : 'Erreur lors de la recherche TMDB (vérifiez votre connexion internet).';
       return { success: false, error: message };
+    }
+  });
+
+  // Canal pour récupérer directement un film TMDB déjà identifié par son id
+  // (ex: en cliquant sur un film manquant d'une collection depuis le tableau
+  // de bord) - renvoie le même format qu'un résultat de search-tmdb, sans
+  // repasser par une recherche par titre.
+  ipcMain.handle('get-tmdb-details', async (event, { id, type = 'movie' }) => {
+    try {
+      const tmdbConfig = config.api?.tmdb;
+      if (!tmdbConfig?.enabled || !tmdbConfig?.apiKey) {
+        return { success: false, error: 'Configurez votre clé API TMDB dans Paramètres > APIs externes.' };
+      }
+
+      const detail = await axios.get(`https://api.themoviedb.org/3/${type}/${id}`, {
+        params: { api_key: tmdbConfig.apiKey, language: 'fr-FR' }
+      });
+
+      return {
+        success: true,
+        result: {
+          id: detail.data.id,
+          title: detail.data.title || detail.data.name,
+          original_title: detail.data.original_title || detail.data.original_name,
+          release_year: (detail.data.release_date || detail.data.first_air_date || '').slice(0, 4) || null,
+          overview: detail.data.overview,
+          vote_average: detail.data.vote_average,
+          poster_path: detail.data.poster_path,
+          runtime: detail.data.runtime || (detail.data.episode_run_time || [])[0] || null,
+          imdb_id: detail.data.imdb_id || null,
+          genres: (detail.data.genres || []).map((g) => g.name),
+          collection: detail.data.belongs_to_collection
+            ? { id: detail.data.belongs_to_collection.id, name: detail.data.belongs_to_collection.name }
+            : null
+        }
+      };
+    } catch (error) {
+      log.error('Erreur lors de la récupération du film TMDB:', error.message);
+      return { success: false, error: 'Erreur lors de la récupération des informations du film.' };
     }
   });
 
