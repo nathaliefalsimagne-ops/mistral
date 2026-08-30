@@ -45,7 +45,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
         sql += ' AND location_id = ?';
         params.push(filters.location);
       }
-      if (filters.hasJacket !== undefined) {
+      // Le filtre "par défaut" (aucun filtre choisi) vaut `null` partout dans
+      // l'app (état initial de DatabaseContext, réinitialisation des
+      // filtres...), jamais `undefined`. Une vérification sur `undefined`
+      // uniquement était donc TOUJOURS vraie, forçant has_jacket = 0 sur
+      // toutes les recherches par défaut - masquant silencieusement tous les
+      // médias enregistrés avec jaquette (l'option cochée par défaut à
+      // l'ajout), y compris dans les statistiques du tableau de bord.
+      if (filters.hasJacket !== null && filters.hasJacket !== undefined) {
         sql += ' AND has_jacket = ?';
         params.push(filters.hasJacket ? 1 : 0);
       }
