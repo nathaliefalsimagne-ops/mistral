@@ -7,6 +7,12 @@ module.exports = {
   mode: process.env.NODE_ENV || 'development',
   entry: './app/renderer.js',
   target: 'electron-renderer',
+  // `target: 'electron-renderer'` traite automatiquement les modules Node
+  // (dont `events`) comme externes, en supposant nodeIntegration activé.
+  // Cette fenêtre a nodeIntegration désactivé : il n'y a pas de vrai
+  // `require` Node disponible, donc ce module doit être empaqueté (voir
+  // resolve.fallback ci-dessous) plutôt que laissé externe.
+  externalsPresets: { electron: false, node: false },
   output: {
     filename: 'renderer.js',
     path: path.resolve(__dirname, 'dist'),
@@ -26,6 +32,13 @@ module.exports = {
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json', '.css', '.scss'],
     alias: {
       '@': path.resolve(__dirname, 'app/src')
+    },
+    // Cette fenêtre a nodeIntegration désactivé : le module Node `events`
+    // (utilisé par le client de rechargement à chaud de webpack-dev-server,
+    // en développement uniquement) doit être fourni par un équivalent
+    // navigateur plutôt que traité comme un module Node externe.
+    fallback: {
+      events: require.resolve('events/')
     }
   },
   module: {
