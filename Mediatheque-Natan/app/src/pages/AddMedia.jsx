@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDatabase } from '../contexts/DatabaseContext';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -24,6 +24,7 @@ import {
 const AddMedia = ({ isEdit = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { getMediaById, addMedia, updateMedia, locations, locationTypes, categories, persons, createLocation } = useDatabase();
   const { success, error: showError } = useToast();
 
@@ -102,6 +103,14 @@ const AddMedia = ({ isEdit = false }) => {
       setMedia(prev => ({ ...prev, id: window.electronAPI.utils.generateId() }));
     }
   }, [isEdit, media.id]);
+
+  // Pré-remplir le code-barres transmis depuis le Scanner (?barcode=...)
+  useEffect(() => {
+    const scannedBarcode = searchParams.get('barcode');
+    if (!isEdit && scannedBarcode) {
+      setMedia(prev => ({ ...prev, barcode: scannedBarcode }));
+    }
+  }, [isEdit, searchParams]);
 
   // Rechercher dans TMDB
   const searchInTMDB = useCallback(async () => {

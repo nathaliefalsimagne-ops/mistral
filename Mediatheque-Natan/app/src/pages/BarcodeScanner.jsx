@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { useDatabase } from '../contexts/DatabaseContext';
 import {
@@ -19,7 +19,6 @@ import {
 
 const BarcodeScanner = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { success, error: showError } = useToast();
   const { searchMedia, getMediaById } = useDatabase();
 
@@ -38,6 +37,10 @@ const BarcodeScanner = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const codeReaderRef = useRef(null);
+  // Un scan mobile peut arriver plusieurs fois en rafale (une détection par
+  // frame côté téléphone) avant que l'état React `scanned` ne soit à jour :
+  // ce ref, lu et positionné de façon synchrone, évite les toasts en double.
+  const scannedRef = useRef(false);
 
   // Charger la bibliothèque ZXing
   useEffect(() => {
@@ -186,8 +189,9 @@ const BarcodeScanner = () => {
 
   // Gérer la détection d'un code-barres
   const handleBarcodeDetected = useCallback(async (code) => {
-    if (scanned) return;
-    
+    if (scannedRef.current) return;
+    scannedRef.current = true;
+
     setScanned(true);
     setIsScanning(false);
     setBarcode(code);
@@ -230,7 +234,7 @@ const BarcodeScanner = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [scanned, stopScanning, getMediaById, success]);
+  }, [stopScanning, getMediaById, success]);
 
   // Démarrer une session de scan depuis le mobile (QR code)
   const startMobileScan = useCallback(async () => {
@@ -290,6 +294,7 @@ const BarcodeScanner = () => {
 
   // Recommencer le scan
   const restartScan = useCallback(() => {
+    scannedRef.current = false;
     setScanned(false);
     setBarcode('');
     setMediaInfo(null);
@@ -298,20 +303,13 @@ const BarcodeScanner = () => {
     startScanning();
   }, [startScanning]);
 
-  // Continuer avec le code-barres
+  // Continuer avec le code-barres : le média n'a par définition pas été
+  // trouvé (voir mediaInfo.found ci-dessus) - la seule action utile est de
+  // créer une nouvelle fiche avec ce code-barres pré-rempli, pas de relancer
+  // une recherche qui ne trouvera rien non plus.
   const continueWithBarcode = useCallback(() => {
-    // Vérifier d'où vient la requête
-    const params = new URLSearchParams(location.search);
-    const from = params.get('from');
-    
-    if (from === 'add-media') {
-      // Retourner à la page d'ajout avec le code-barres
-      navigate(`/media/add?barcode=${encodeURIComponent(barcode)}`);
-    } else {
-      // Rechercher le média
-      navigate(`/search?q=${encodeURIComponent(barcode)}`);
-    }
-  }, [barcode, navigate, location.search]);
+    navigate(`/media/add?barcode=${encodeURIComponent(barcode)}`);
+  }, [barcode, navigate]);
 
   // Aller à la fiche du média
   const goToMediaDetail = useCallback(() => {

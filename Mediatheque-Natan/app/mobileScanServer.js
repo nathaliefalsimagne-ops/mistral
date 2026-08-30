@@ -82,8 +82,15 @@ function renderMobilePage(token) {
   <script>
     const token = ${JSON.stringify(token)};
     const statusEl = document.getElementById('status');
+    let sent = false;
 
     async function sendResult(barcode) {
+      // Le lecteur de codes-barres rappelle ce callback à chaque frame tant
+      // que le code reste dans le champ de la caméra (plusieurs fois par
+      // seconde) : sans ce verrou, chaque frame déclenchait son propre
+      // envoi avant que le premier n'ait eu le temps d'arrêter la caméra.
+      if (sent) return;
+      sent = true;
       try {
         const res = await fetch('/scan/' + token + '/result', {
           method: 'POST',
@@ -95,6 +102,7 @@ function renderMobilePage(token) {
         document.getElementById('success').style.display = 'block';
         if (window.__reader) window.__reader.reset();
       } catch (err) {
+        sent = false;
         statusEl.textContent = 'Erreur : ' + err.message + ' (le lien a peut-être expiré, régénérez un QR code)';
       }
     }
