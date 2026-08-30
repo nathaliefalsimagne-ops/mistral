@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --bg-primary: #1A1B2E;
   --bg-secondary: #2B2D42;
@@ -13,6 +17,7 @@
   --danger: #EB5757;
   --border: #DEE2E6;
   --shadow: rgba(0, 0, 0, 0.1);
+  --z-fixed: 1030;
 }
 
 * {
