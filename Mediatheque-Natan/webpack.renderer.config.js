@@ -136,7 +136,12 @@ module.exports = {
     compress: true,
     port: 3000,
     hot: true,
-    historyApiFallback: true
+    historyApiFallback: true,
+    // Ne bloque l'écran que sur une vraie erreur, pas sur un avertissement
+    // (ex. la dépréciation de l'API Sass, sans impact fonctionnel).
+    client: {
+      overlay: { errors: true, warnings: false }
+    }
   },
   devtool: 'source-map'
 };
