@@ -92,6 +92,8 @@ const SCHEMA_SQL = `
       imdb_id TEXT,
       tmdb_id INTEGER,
       musicbrainz_id TEXT,
+      tmdb_collection_id INTEGER,
+      tmdb_collection_name TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (type_id) REFERENCES media_types(id),

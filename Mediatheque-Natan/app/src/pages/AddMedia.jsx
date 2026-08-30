@@ -46,6 +46,8 @@ const AddMedia = ({ isEdit = false }) => {
     imdb_id: '',
     tmdb_id: '',
     musicbrainz_id: '',
+    tmdb_collection_id: null,
+    tmdb_collection_name: '',
     added_date: new Date().toISOString()
   });
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -140,7 +142,9 @@ const AddMedia = ({ isEdit = false }) => {
       // s'il le souhaite (ex: au moment d'un emprunt), pas TMDB.
       imdb_id: result.imdb_id,
       tmdb_id: result.id,
-      jacket_image_url: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : ''
+      jacket_image_url: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : '',
+      tmdb_collection_id: result.collection?.id || null,
+      tmdb_collection_name: result.collection?.name || ''
     }));
     setSearchResults([]);
     setSearchQuery('');

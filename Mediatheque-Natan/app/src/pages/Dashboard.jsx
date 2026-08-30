@@ -16,7 +16,8 @@ import {
   Plus,
   Search,
   BarChart3,
-  Archive
+  Archive,
+  Layers
 } from 'lucide-react';
 
 // Obtenir la couleur de l'état d'un média
@@ -37,6 +38,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [recentMedia, setRecentMedia] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
+  const [collectionGaps, setCollectionGaps] = useState([]);
 
   // Charger les statistiques et recommandations
   useEffect(() => {
@@ -74,6 +76,43 @@ const Dashboard = () => {
       loadData();
     }
   }, [media, isLoading, getStats, user]);
+
+  // Repérer les collections TMDB incomplètes (ex: "il manque 3 films de la
+  // collection Mission: Impossible"). Un seul appel API par collection
+  // distincte présente en médiathèque, pas par média.
+  useEffect(() => {
+    const loadCollectionGaps = async () => {
+      const collections = new Map();
+      for (const m of media) {
+        if (m.tmdb_collection_id && !collections.has(m.tmdb_collection_id)) {
+          collections.set(m.tmdb_collection_id, m.tmdb_collection_name);
+        }
+      }
+      if (collections.size === 0) {
+        setCollectionGaps([]);
+        return;
+      }
+
+      const results = await Promise.all(
+        Array.from(collections.keys()).map(async (collectionId) => {
+          try {
+            const res = await window.electronAPI.api.getCollectionStatus(collectionId);
+            return res.success && res.data.missing.length > 0
+              ? { collectionId, ...res.data }
+              : null;
+          } catch (err) {
+            console.error('Erreur lors de la vérification de la collection:', err);
+            return null;
+          }
+        })
+      );
+      setCollectionGaps(results.filter(Boolean));
+    };
+
+    if (!isLoading) {
+      loadCollectionGaps();
+    }
+  }, [media, isLoading]);
 
   // Afficher un message de bienvenue
   useEffect(() => {
@@ -308,6 +347,36 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {collectionGaps.length > 0 && (
+        <div className="bg-secondary rounded-xl p-lg">
+          <div className="flex items-center gap-sm mb-lg">
+            <Layers size={20} className="text-accent" />
+            <h2 className="text-xl font-semibold">Complétez vos collections</h2>
+          </div>
+          <div className="space-y-lg">
+            {collectionGaps.map((gap) => (
+              <div key={gap.collectionId}>
+                <p className="font-medium mb-sm">
+                  Il vous manque {gap.missing.length} film{gap.missing.length > 1 ? 's' : ''} de la collection « {gap.collectionName} »
+                </p>
+                <div className="flex flex-wrap gap-sm">
+                  {gap.missing.map((film) => (
+                    <Link
+                      key={film.id}
+                      to="/media/add"
+                      className="flex items-center gap-xs bg-tertiary rounded-lg px-md py-sm text-sm hover:bg-accent hover:text-white transition-colors"
+                    >
+                      <Plus size={14} />
+                      {film.title}{film.release_year ? ` (${film.release_year})` : ''}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Médias récents */}
       <div className="bg-secondary rounded-xl p-lg">

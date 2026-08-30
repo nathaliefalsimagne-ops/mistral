@@ -163,10 +163,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     addMedia: (media) => {
       return ipcRenderer.invoke('db-execute', {
         sql: `INSERT INTO media (
-          id, title, original_title, type_id, release_year, duration_minutes, 
-          synopsis, average_rating, state_id, location_id, has_jacket, 
-          barcode, jacket_image_url, imdb_id, tmdb_id, musicbrainz_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, title, original_title, type_id, release_year, duration_minutes,
+          synopsis, average_rating, state_id, location_id, has_jacket,
+          barcode, jacket_image_url, imdb_id, tmdb_id, musicbrainz_id,
+          tmdb_collection_id, tmdb_collection_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         // Le formulaire (AddMedia.jsx) et le schéma SQL utilisent tous les
         // deux le snake_case (type_id, original_title...) : lire ici des
         // clés camelCase (typeId...) revenait à envoyer `undefined` pour
@@ -176,7 +177,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
           media.release_year, media.duration_minutes, media.synopsis,
           media.average_rating, media.state_id, media.location_id,
           media.has_jacket ? 1 : 0, media.barcode, media.jacket_image_url,
-          media.imdb_id, media.tmdb_id, media.musicbrainz_id
+          media.imdb_id, media.tmdb_id, media.musicbrainz_id,
+          media.tmdb_collection_id || null, media.tmdb_collection_name || null
         ]
       });
     },
@@ -188,6 +190,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
           duration_minutes = ?, synopsis = ?, average_rating = ?,
           state_id = ?, location_id = ?, has_jacket = ?, barcode = ?,
           jacket_image_url = ?, imdb_id = ?, tmdb_id = ?, musicbrainz_id = ?,
+          tmdb_collection_id = ?, tmdb_collection_name = ?,
           updated_at = CURRENT_TIMESTAMP
           WHERE id = ?`,
         params: [
@@ -195,7 +198,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
           media.duration_minutes, media.synopsis, media.average_rating,
           media.state_id, media.location_id, media.has_jacket ? 1 : 0,
           media.barcode, media.jacket_image_url, media.imdb_id,
-          media.tmdb_id, media.musicbrainz_id, media.id
+          media.tmdb_id, media.musicbrainz_id,
+          media.tmdb_collection_id || null, media.tmdb_collection_name || null, media.id
         ]
       });
     },
@@ -253,6 +257,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     searchTMDB: (query, type) => ipcRenderer.invoke('search-tmdb', { query, type }),
     getTmdbCredits: (id, type) => ipcRenderer.invoke('get-tmdb-credits', { id, type }),
     getTmdbGenres: (id, type) => ipcRenderer.invoke('get-tmdb-genres', { id, type }),
+    getCollectionStatus: (collectionId) => ipcRenderer.invoke('get-collection-status', { collectionId }),
     searchMusicBrainz: (query) => ipcRenderer.invoke('search-musicbrainz', { query })
   },
 

@@ -162,6 +162,13 @@ function initDatabase() {
       }
     );
 
+    // ALTER TABLE ADD COLUMN pour les bases créées avant l'ajout de ces
+    // colonnes. SQLite n'a pas de "IF NOT EXISTS" pour ADD COLUMN : on
+    // avale simplement l'erreur "duplicate column name" si elles existent
+    // déjà (le cas normal après le premier lancement suivant ce correctif).
+    db.run('ALTER TABLE media ADD COLUMN tmdb_collection_id INTEGER', () => {});
+    db.run('ALTER TABLE media ADD COLUMN tmdb_collection_name TEXT', () => {});
+
     return db;
   } catch (error) {
     log.error('Erreur lors de l\'initialisation de la base de données:', error);
@@ -847,7 +854,10 @@ function setupIPC() {
               poster_path: item.poster_path,
               runtime: detail.data.runtime || (detail.data.episode_run_time || [])[0] || null,
               imdb_id: detail.data.imdb_id || null,
-              genres: (detail.data.genres || []).map((g) => g.name)
+              genres: (detail.data.genres || []).map((g) => g.name),
+              collection: detail.data.belongs_to_collection
+                ? { id: detail.data.belongs_to_collection.id, name: detail.data.belongs_to_collection.name }
+                : null
             };
           } catch (detailError) {
             log.error('Erreur lors de la récupération des détails TMDB:', detailError.message);
@@ -861,7 +871,8 @@ function setupIPC() {
               poster_path: item.poster_path,
               runtime: null,
               imdb_id: null,
-              genres: []
+              genres: [],
+              collection: null
             };
           }
         })
@@ -926,6 +937,52 @@ function setupIPC() {
     } catch (error) {
       log.error('Erreur lors de la récupération des genres TMDB:', error.message);
       return { success: false, error: 'Erreur lors de la récupération des genres.' };
+    }
+  });
+
+  // Canal pour comparer une collection TMDB (ex: "Mission: Impossible
+  // Collection") à la médiathèque, et repérer les épisodes manquants.
+  ipcMain.handle('get-collection-status', async (event, { collectionId }) => {
+    try {
+      const tmdbConfig = config.api?.tmdb;
+      if (!tmdbConfig?.enabled || !tmdbConfig?.apiKey) {
+        return { success: false, error: 'Configurez votre clé API TMDB dans Paramètres > APIs externes.' };
+      }
+
+      const response = await axios.get(`https://api.themoviedb.org/3/collection/${collectionId}`, {
+        params: { api_key: tmdbConfig.apiKey, language: 'fr-FR' }
+      });
+
+      const ownedIds = await new Promise((resolve, reject) => {
+        db.all(
+          'SELECT tmdb_id FROM media WHERE tmdb_collection_id = ?',
+          [collectionId],
+          (err, rows) => (err ? reject(err) : resolve(new Set(rows.map((r) => r.tmdb_id))))
+        );
+      });
+
+      const parts = response.data.parts || [];
+      const missing = parts
+        .filter((p) => !ownedIds.has(p.id))
+        .map((p) => ({
+          id: p.id,
+          title: p.title,
+          release_year: (p.release_date || '').slice(0, 4) || null,
+          poster_path: p.poster_path
+        }));
+
+      return {
+        success: true,
+        data: {
+          collectionName: response.data.name,
+          totalCount: parts.length,
+          ownedCount: parts.length - missing.length,
+          missing
+        }
+      };
+    } catch (error) {
+      log.error('Erreur lors de la vérification de la collection TMDB:', error.message);
+      return { success: false, error: 'Erreur lors de la vérification de la collection.' };
     }
   });
 
