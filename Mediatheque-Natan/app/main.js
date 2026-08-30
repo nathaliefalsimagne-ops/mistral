@@ -6,6 +6,7 @@ const uuid = require('uuid');
 const { SCHEMA_SQL } = require('./db-schema');
 const { importMovieBuddyRows } = require('./importers/movieBuddy');
 const csvParser = require('csv-parser');
+const axios = require('axios');
 
 // Configuration du logging (remplace electronLog par console)
 const log = console;
@@ -29,6 +30,10 @@ function loadConfig() {
     const configPath = path.join(app.getPath('userData'), 'config.json');
     if (fs.existsSync(configPath)) {
       config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      // Compatibilité avec une config.json créée avant l'ajout de cette section
+      if (!config.api) {
+        config.api = { tmdb: { enabled: false, apiKey: '' }, musicBrainz: { enabled: true, apiKey: '' } };
+      }
       log.log('Configuration chargée depuis', configPath);
     } else {
       // Configuration par défaut
@@ -48,6 +53,10 @@ function loadConfig() {
           enabled: true,
           useCloud: false,
           confidenceThreshold: 0.85
+        },
+        api: {
+          tmdb: { enabled: false, apiKey: '' },
+          musicBrainz: { enabled: true, apiKey: '' }
         },
         recommendations: {
           enabled: true,
@@ -618,20 +627,82 @@ function setupIPC() {
   // Canal pour rechercher dans TMDB
   ipcMain.handle('search-tmdb', async (event, { query, type = 'movie' }) => {
     try {
-      return { success: true, results: [] };
+      const tmdbConfig = config.api?.tmdb;
+      if (!tmdbConfig?.enabled || !tmdbConfig?.apiKey) {
+        return { success: false, error: 'Configurez votre clé API TMDB dans Paramètres > APIs externes.' };
+      }
+
+      const searchResponse = await axios.get(`https://api.themoviedb.org/3/search/${type}`, {
+        params: { api_key: tmdbConfig.apiKey, query, language: 'fr-FR' }
+      });
+
+      const topResults = (searchResponse.data.results || []).slice(0, 5);
+
+      // Compléter avec la durée et l'ID IMDb (absents des résultats de recherche)
+      const enriched = await Promise.all(
+        topResults.map(async (item) => {
+          try {
+            const detail = await axios.get(`https://api.themoviedb.org/3/${type}/${item.id}`, {
+              params: { api_key: tmdbConfig.apiKey, language: 'fr-FR' }
+            });
+            return {
+              id: item.id,
+              title: item.title || item.name,
+              original_title: item.original_title || item.original_name,
+              release_year: (item.release_date || item.first_air_date || '').slice(0, 4) || null,
+              overview: item.overview,
+              vote_average: item.vote_average,
+              poster_path: item.poster_path,
+              runtime: detail.data.runtime || (detail.data.episode_run_time || [])[0] || null,
+              imdb_id: detail.data.imdb_id || null
+            };
+          } catch (detailError) {
+            log.error('Erreur lors de la récupération des détails TMDB:', detailError.message);
+            return {
+              id: item.id,
+              title: item.title || item.name,
+              original_title: item.original_title || item.original_name,
+              release_year: (item.release_date || item.first_air_date || '').slice(0, 4) || null,
+              overview: item.overview,
+              vote_average: item.vote_average,
+              poster_path: item.poster_path,
+              runtime: null,
+              imdb_id: null
+            };
+          }
+        })
+      );
+
+      return { success: true, results: enriched };
     } catch (error) {
-      log.error('Erreur lors de la recherche TMDB:', error);
-      return { success: false, error: error.message };
+      log.error('Erreur lors de la recherche TMDB:', error.message);
+      const message = error.response?.status === 401
+        ? 'Clé API TMDB invalide.'
+        : 'Erreur lors de la recherche TMDB (vérifiez votre connexion internet).';
+      return { success: false, error: message };
     }
   });
 
-  // Canal pour rechercher dans MusicBrainz
+  // Canal pour rechercher dans MusicBrainz (pas de clé API nécessaire)
   ipcMain.handle('search-musicbrainz', async (event, { query }) => {
     try {
-      return { success: true, results: [] };
+      const response = await axios.get('https://musicbrainz.org/ws/2/release/', {
+        params: { query, fmt: 'json', limit: 5 },
+        headers: { 'User-Agent': 'MediathequeNatan/1.0 (+https://github.com/nathaliefalsimagne-ops/mistral)' }
+      });
+
+      const results = (response.data.releases || []).map((release) => ({
+        id: release.id,
+        title: release.title,
+        artist: (release['artist-credit'] || []).map((a) => a.name).join(', '),
+        date: release.date || null,
+        country: release.country || null
+      }));
+
+      return { success: true, results };
     } catch (error) {
-      log.error('Erreur lors de la recherche MusicBrainz:', error);
-      return { success: false, error: error.message };
+      log.error('Erreur lors de la recherche MusicBrainz:', error.message);
+      return { success: false, error: 'Erreur lors de la recherche MusicBrainz (vérifiez votre connexion internet).' };
     }
   });
 }

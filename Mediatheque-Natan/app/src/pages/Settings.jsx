@@ -113,6 +113,10 @@ const Settings = () => {
               ...prev.recognition,
               ...configResponse.data.recognition
             },
+            api: {
+              ...prev.api,
+              ...configResponse.data.api
+            },
             ai: {
               ...prev.ai,
               ...configResponse.data.ai
@@ -140,6 +144,7 @@ const Settings = () => {
         backup: settings.database,
         sync: settings.externalStorage,
         recognition: settings.recognition,
+        api: settings.api,
         ai: settings.ai
       });
 

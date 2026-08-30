@@ -110,6 +110,8 @@ const AddMedia = ({ isEdit = false }) => {
       const response = await window.electronAPI.api.searchTMDB(searchQuery, 'movie');
       if (response.success) {
         setSearchResults(response.results.slice(0, 5));
+      } else {
+        showError(response.error || 'Erreur lors de la recherche TMDB');
       }
     } catch (err) {
       console.error('Erreur lors de la recherche TMDB:', err);
