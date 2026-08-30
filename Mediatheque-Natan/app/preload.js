@@ -139,31 +139,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
           synopsis, average_rating, state_id, location_id, has_jacket, 
           barcode, jacket_image_url, imdb_id, tmdb_id, musicbrainz_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        // Le formulaire (AddMedia.jsx) et le schéma SQL utilisent tous les
+        // deux le snake_case (type_id, original_title...) : lire ici des
+        // clés camelCase (typeId...) revenait à envoyer `undefined` pour
+        // chaque colonne, d'où le NOT NULL constraint failed sur type_id.
         params: [
-          media.id, media.title, media.originalTitle, media.typeId, 
-          media.releaseYear, media.durationMinutes, media.synopsis, 
-          media.averageRating, media.stateId, media.locationId, 
-          media.hasJacket ? 1 : 0, media.barcode, media.jacketImageUrl, 
-          media.imdbId, media.tmdbId, media.musicbrainzId
+          media.id, media.title, media.original_title, media.type_id,
+          media.release_year, media.duration_minutes, media.synopsis,
+          media.average_rating, media.state_id, media.location_id,
+          media.has_jacket ? 1 : 0, media.barcode, media.jacket_image_url,
+          media.imdb_id, media.tmdb_id, media.musicbrainz_id
         ]
       });
     },
-    
+
     updateMedia: (media) => {
       return ipcRenderer.invoke('db-execute', {
-        sql: `UPDATE media SET 
-          title = ?, original_title = ?, type_id = ?, release_year = ?, 
-          duration_minutes = ?, synopsis = ?, average_rating = ?, 
-          state_id = ?, location_id = ?, has_jacket = ?, barcode = ?, 
-          jacket_image_url = ?, imdb_id = ?, tmdb_id = ?, musicbrainz_id = ?, 
+        sql: `UPDATE media SET
+          title = ?, original_title = ?, type_id = ?, release_year = ?,
+          duration_minutes = ?, synopsis = ?, average_rating = ?,
+          state_id = ?, location_id = ?, has_jacket = ?, barcode = ?,
+          jacket_image_url = ?, imdb_id = ?, tmdb_id = ?, musicbrainz_id = ?,
           updated_at = CURRENT_TIMESTAMP
           WHERE id = ?`,
         params: [
-          media.title, media.originalTitle, media.typeId, media.releaseYear, 
-          media.durationMinutes, media.synopsis, media.averageRating, 
-          media.stateId, media.locationId, media.hasJacket ? 1 : 0, 
-          media.barcode, media.jacketImageUrl, media.imdbId, 
-          media.tmdbId, media.musicbrainzId, media.id
+          media.title, media.original_title, media.type_id, media.release_year,
+          media.duration_minutes, media.synopsis, media.average_rating,
+          media.state_id, media.location_id, media.has_jacket ? 1 : 0,
+          media.barcode, media.jacket_image_url, media.imdb_id,
+          media.tmdb_id, media.musicbrainz_id, media.id
         ]
       });
     },
