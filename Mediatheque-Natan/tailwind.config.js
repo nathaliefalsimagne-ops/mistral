@@ -26,14 +26,48 @@ module.exports = {
         lg: '1.5rem',
         xl: '2rem'
       },
+      // Valeurs littérales (pas de var()) pour que les dégradés
+      // (from-accent to-accent-light), les modificateurs d'opacité
+      // (bg-danger/50) et les ring/shadow colorés fonctionnent : Tailwind
+      // ne peut pas calculer une opacité ou un dégradé sur une valeur
+      // var(--...) opaque au moment de la compilation.
       colors: {
         dark: '#14152A',
         light: 'var(--text-primary)',
-        color: 'var(--border)'
+        color: 'var(--border)',
+        accent: '#D90429',
+        'accent-light': '#EF233C',
+        success: '#27AE60',
+        info: '#2980B9',
+        warning: '#F2994A',
+        danger: '#EB5757'
       },
       zIndex: {
         fixed: '1030',
         modal: '1000'
+      },
+      keyframes: {
+        fadeInUp: {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' }
+        },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' }
+        },
+        scaleIn: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' }
+        }
+      },
+      animation: {
+        'fade-in-up': 'fadeInUp 0.35s ease-out both',
+        'fade-in': 'fadeIn 0.2s ease-out both',
+        'scale-in': 'scaleIn 0.2s ease-out both'
+      },
+      boxShadow: {
+        glow: '0 8px 30px -8px rgba(217, 4, 41, 0.45)',
+        'glow-lg': '0 20px 45px -12px rgba(217, 4, 41, 0.5)'
       }
     }
   },

@@ -152,21 +152,25 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-xl">
-      {/* En-tête */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-md">
-        <div>
-          <h1 className="text-2xl font-bold">Tableau de bord</h1>
-          <p className="text-tertiary mt-xs">
-            Bienvenue dans votre médiathèque intelligente
-          </p>
-        </div>
-        <div className="flex items-center gap-md">
-          <Link to="/media/add">
-            <button className="flex items-center gap-sm bg-accent text-white px-md py-sm rounded-lg hover:bg-accent-light transition-colors">
-              <Plus className="w-5 h-5" />
-              <span>Ajouter un média</span>
-            </button>
-          </Link>
+      {/* En-tête cinématique */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-secondary via-secondary to-primary p-xl">
+        <div className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full bg-accent/25 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-info/10 blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-md">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Tableau de bord</h1>
+            <p className="text-tertiary mt-xs">
+              Bienvenue dans votre médiathèque intelligente
+            </p>
+          </div>
+          <div className="flex items-center gap-md">
+            <Link to="/media/add">
+              <button className="flex items-center gap-sm bg-accent text-white px-md py-sm rounded-lg shadow-glow transition-all duration-200 hover:bg-accent-light hover:-translate-y-0.5 hover:shadow-glow-lg active:translate-y-0 active:scale-95">
+                <Plus className="w-5 h-5" />
+                <span>Ajouter un média</span>
+              </button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -416,9 +420,9 @@ const Dashboard = () => {
 
 // Composant StatCard
 const StatCard = ({ icon, label, value, color }) => (
-  <div className="bg-secondary rounded-xl p-lg">
+  <div className="group bg-secondary rounded-xl p-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-glow cursor-default">
     <div className="flex items-center gap-md">
-      <div className={`p-sm rounded-lg ${color}`}>
+      <div className={`p-sm rounded-lg ${color} transition-transform duration-300 group-hover:scale-110`}>
         <span className="text-white">{icon}</span>
       </div>
       <div>
@@ -449,9 +453,9 @@ const ProgressBar = ({ label, value, max, color, percentage, showLabel = true })
 
 // Composant RecommendationCard
 const RecommendationCard = ({ recommendation, index }) => (
-  <div className="flex gap-md p-md rounded-lg hover:bg-tertiary transition-colors">
-    <div className="flex-shrink-0 w-12 h-12 bg-accent bg-opacity-10 rounded-lg flex items-center justify-center">
-      <span className="text-xl font-bold text-accent">{index}</span>
+  <div className="group flex gap-md p-md rounded-lg transition-all duration-200 hover:bg-tertiary hover:-translate-y-0.5">
+    <div className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-br from-accent to-accent-light shadow-glow transition-transform duration-300 group-hover:scale-110">
+      <span className="text-xl font-bold text-white">{index}</span>
     </div>
     <div className="flex-1 min-w-0">
       <h3 className="font-semibold text-ellipsis overflow-hidden whitespace-nowrap">
@@ -464,10 +468,10 @@ const RecommendationCard = ({ recommendation, index }) => (
         {recommendation.reason}
       </p>
     </div>
-    <div className="flex-shrink-0">
+    <div className="flex-shrink-0 self-center">
       <Link
         to={`/media/detail/${recommendation.mediaId}`}
-        className="bg-accent text-white px-sm py-xs rounded text-sm hover:bg-accent-light transition-colors"
+        className="inline-block bg-accent text-white px-sm py-xs rounded text-sm transition-all duration-200 hover:bg-accent-light hover:-translate-y-0.5 hover:shadow-glow active:scale-95"
       >
         Voir
       </Link>
@@ -477,31 +481,34 @@ const RecommendationCard = ({ recommendation, index }) => (
 
 // Composant MediaCard
 const MediaCard = ({ media, showType = false, showState = false }) => (
-  <div className="group">
-    <div className="aspect-[2/3] bg-tertiary rounded-lg overflow-hidden mb-sm relative">
+  <Link to={`/media/detail/${media.id}`} className="group block">
+    <div className="aspect-[2/3] bg-tertiary rounded-lg overflow-hidden mb-sm relative transition-all duration-300 ease-out group-hover:-translate-y-1.5 group-hover:shadow-glow-lg">
       {media.jacket_image_url ? (
         <img
           src={media.jacket_image_url}
           alt={media.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
         />
       ) : (
-        <div className="w-full h-full bg-gradient-to-br from-accent to-accent-light flex items-center justify-center">
+        <div className="w-full h-full bg-gradient-to-br from-accent to-accent-light flex items-center justify-center transition-transform duration-500 ease-out group-hover:scale-110">
           <span className="text-white text-4xl font-bold opacity-50">
             {media.title.charAt(0).toUpperCase()}
           </span>
         </div>
       )}
-      
+
+      {/* Voile permanent pour la lisibilité, renforcé au survol */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0 opacity-70 transition-opacity duration-300 group-hover:opacity-90" />
+
       {/* Badge de type */}
       {showType && (
         <div className="absolute top-sm left-sm">
-          <span className="bg-black bg-opacity-50 text-white text-xs px-sm py-xs rounded">
+          <span className="bg-black/60 backdrop-blur-sm text-white text-xs px-sm py-xs rounded">
             {window.electronAPI.utils.getMediaTypeLabel(media.type_id)}
           </span>
         </div>
       )}
-      
+
       {/* Badge d'état */}
       {showState && media.state_id && (
         <div className="absolute top-sm right-sm">
@@ -510,19 +517,19 @@ const MediaCard = ({ media, showType = false, showState = false }) => (
           </span>
         </div>
       )}
-      
+
       {/* Badge sans jaquette */}
       {!media.has_jacket && (
         <div className="absolute bottom-sm left-sm">
-          <span className="bg-black bg-opacity-50 text-white text-xs px-sm py-xs rounded">
+          <span className="bg-black/60 backdrop-blur-sm text-white text-xs px-sm py-xs rounded">
             Sans jaquette
           </span>
         </div>
       )}
     </div>
-    
+
     <div className="min-w-0">
-      <h3 className="font-medium text-ellipsis overflow-hidden whitespace-nowrap">
+      <h3 className="font-medium text-ellipsis overflow-hidden whitespace-nowrap transition-colors duration-200 group-hover:text-accent-light">
         {media.title}
       </h3>
       {media.original_title && media.original_title !== media.title && (
@@ -534,7 +541,7 @@ const MediaCard = ({ media, showType = false, showState = false }) => (
         {media.release_year} • {media.duration_minutes} min
       </p>
     </div>
-  </div>
+  </Link>
 );
 
 export default Dashboard;

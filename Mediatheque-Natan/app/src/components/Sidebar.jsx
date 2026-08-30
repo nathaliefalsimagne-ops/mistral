@@ -119,19 +119,29 @@ const Sidebar = ({ isCollapsed, onClose }) => {
     <NavLink
       to={to}
       className={({ isActive }) => `
-        flex items-center gap-md px-md py-sm rounded transition-colors duration-200
-        ${isActive ? 'bg-accent text-white' : 'text-secondary hover:bg-tertiary hover:text-primary'}
+        relative flex items-center gap-md px-md py-sm rounded-lg
+        transition-all duration-200 ease-out
+        ${isActive
+          ? 'bg-accent text-white shadow-glow translate-x-0.5'
+          : 'text-secondary hover:bg-tertiary hover:text-primary hover:translate-x-0.5'}
       `}
       title={isCollapsed ? label : undefined}
     >
-      <Icon className={`w-5 h-5 ${isCollapsed ? 'mx-auto' : ''}`} />
-      {!isCollapsed && (
+      {({ isActive }) => (
         <>
-          <span className="flex-1">{label}</span>
-          {badge !== null && badge > 0 && (
-            <span className="px-2 py-0.5 bg-secondary text-xs rounded-full text-primary">
-              {badge}
-            </span>
+          {isActive && (
+            <span className="absolute left-[-0.75rem] top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-accent-light animate-fade-in" />
+          )}
+          <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 ${isCollapsed ? 'mx-auto' : ''} ${isActive ? 'scale-110' : ''}`} />
+          {!isCollapsed && (
+            <>
+              <span className="flex-1">{label}</span>
+              {badge !== null && badge > 0 && (
+                <span className={`px-2 py-0.5 text-xs rounded-full transition-colors ${isActive ? 'bg-white/20 text-white' : 'bg-secondary text-primary'}`}>
+                  {badge}
+                </span>
+              )}
+            </>
           )}
         </>
       )}

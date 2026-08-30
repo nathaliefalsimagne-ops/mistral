@@ -74,8 +74,10 @@ const Layout = ({ children }) => {
         />
 
         {/* Page Content */}
-        <main className="flex-1 p-lg bg-primary">
-          {children || <Outlet />}
+        <main className="flex-1 p-lg bg-primary overflow-y-auto">
+          <div key={location.pathname} className="animate-fade-in-up">
+            {children || <Outlet />}
+          </div>
         </main>
 
         {/* Footer */}

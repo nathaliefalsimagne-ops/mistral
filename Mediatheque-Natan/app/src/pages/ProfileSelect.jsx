@@ -8,21 +8,21 @@ import { Plus, Pencil, Trash2, X, Check, Loader2 } from 'lucide-react';
 const AVATAR_CHOICES = ['🎬', '🍿', '📀', '🎧', '🦊', '🐱', '🐶', '🌟', '👤'];
 
 const ProfileTile = ({ profile, isManaging, onSelect, onEdit, onDelete }) => (
-  <div className="flex flex-col items-center gap-sm">
+  <div className="flex flex-col items-center gap-sm animate-fade-in-up">
     <button
       type="button"
       onClick={() => (isManaging ? onEdit(profile) : onSelect(profile))}
       className="flex flex-col items-center gap-sm group"
     >
-      <span className="relative w-28 h-28 rounded-xl bg-secondary flex items-center justify-center text-5xl group-hover:ring-4 group-hover:ring-accent transition-all">
+      <span className="relative w-28 h-28 rounded-xl bg-secondary flex items-center justify-center text-5xl shadow-lg transition-all duration-300 ease-out group-hover:-translate-y-2 group-hover:scale-105 group-hover:ring-4 group-hover:ring-accent group-hover:shadow-glow-lg">
         {profile.avatar_url || '👤'}
         {isManaging && (
-          <span className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center">
+          <span className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center animate-fade-in">
             <Pencil className="w-8 h-8 text-white" />
           </span>
         )}
       </span>
-      <span className="text-sm text-center max-w-[7rem] truncate">{profile.first_name}</span>
+      <span className="text-sm text-center max-w-[7rem] truncate transition-colors duration-200 group-hover:text-accent-light">{profile.first_name}</span>
     </button>
     {isManaging && (
       <button
@@ -239,13 +239,16 @@ const ProfileSelect = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-lg text-white" style={backgroundStyle}>
-      <h1 className="text-3xl font-bold mb-xl">Qui regarde ?</h1>
+    <div className="relative min-h-screen flex flex-col items-center justify-center p-lg text-white overflow-hidden" style={backgroundStyle}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.55)_100%)]" />
+      <div className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
+
+      <h1 className="relative text-3xl font-bold mb-xl animate-fade-in-up">Qui regarde ?</h1>
 
       {isLoadingProfiles ? (
         <Loader2 className="w-8 h-8 animate-spin" />
       ) : (
-        <div className="flex flex-wrap justify-center gap-lg max-w-3xl">
+        <div className="relative flex flex-wrap justify-center gap-lg max-w-3xl">
           {profiles.map((profile) => (
             <ProfileTile
               key={profile.id}
@@ -260,12 +263,12 @@ const ProfileSelect = () => {
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
-            className="flex flex-col items-center gap-sm"
+            className="group flex flex-col items-center gap-sm animate-fade-in-up"
           >
-            <span className="w-28 h-28 rounded-xl border-2 border-dashed border-white/40 flex items-center justify-center hover:border-white transition-colors">
-              <Plus className="w-10 h-10" />
+            <span className="w-28 h-28 rounded-xl border-2 border-dashed border-white/40 flex items-center justify-center transition-all duration-300 ease-out group-hover:-translate-y-2 group-hover:scale-105 group-hover:border-accent group-hover:bg-white/5">
+              <Plus className="w-10 h-10 transition-transform duration-300 group-hover:rotate-90" />
             </span>
-            <span className="text-sm">Ajouter un profil</span>
+            <span className="text-sm transition-colors duration-200 group-hover:text-accent-light">Ajouter un profil</span>
           </button>
         </div>
       )}
@@ -273,16 +276,16 @@ const ProfileSelect = () => {
       <button
         type="button"
         onClick={() => setIsManaging((prev) => !prev)}
-        className="mt-xl px-lg py-sm border rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors flex items-center gap-sm"
+        className="relative mt-xl px-lg py-sm border rounded-lg hover:bg-white/10 hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-sm"
       >
         {isManaging ? <Check className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
         {isManaging ? 'Terminé' : 'Gérer les profils'}
       </button>
 
       {pinTarget && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-md">
-          <div className="relative">
-            <button type="button" onClick={() => setPinTarget(null)} className="absolute -top-10 right-0 text-white">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-md animate-fade-in">
+          <div className="relative animate-scale-in">
+            <button type="button" onClick={() => setPinTarget(null)} className="absolute -top-10 right-0 text-white transition-transform hover:scale-110">
               <X className="w-6 h-6" />
             </button>
             <PinPrompt
@@ -297,13 +300,15 @@ const ProfileSelect = () => {
       )}
 
       {(showAddForm || editingProfile) && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-md">
-          <ProfileForm
-            initial={editingProfile}
-            onCancel={() => { setShowAddForm(false); setEditingProfile(null); }}
-            onSubmit={editingProfile ? handleEditSubmit : handleCreate}
-            isSubmitting={isSubmitting}
-          />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-md animate-fade-in">
+          <div className="animate-scale-in">
+            <ProfileForm
+              initial={editingProfile}
+              onCancel={() => { setShowAddForm(false); setEditingProfile(null); }}
+              onSubmit={editingProfile ? handleEditSubmit : handleCreate}
+              isSubmitting={isSubmitting}
+            />
+          </div>
         </div>
       )}
 
