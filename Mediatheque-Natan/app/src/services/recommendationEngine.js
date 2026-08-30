@@ -78,8 +78,12 @@ class RecommendationEngine {
       // Appliquer la diversité
       const diverseMedia = this.applyDiversity(sortedMedia, user);
 
-      // Retourner les meilleures recommandations
-      return diverseMedia.slice(0, Math.min(limit, diverseMedia.length));
+      // Retourner les meilleures recommandations, avec une justification
+      // lisible (nécessaire pour l'affichage - getTrendingMedia/getNewArrivals
+      // fournissent déjà la leur, mais pas calculateScores).
+      return diverseMedia
+        .slice(0, Math.min(limit, diverseMedia.length))
+        .map(item => ({ ...item, reason: item.reason || this.explainContributions(item.contributions, userLoans) }));
 
     } catch (error) {
       console.error('Erreur lors du calcul des recommandations:', error);
@@ -328,6 +332,33 @@ class RecommendationEngine {
     }
 
     return 0.1;
+  }
+
+  /**
+   * Traduire la contribution dominante d'un score en justification lisible
+   */
+  explainContributions(contributions, userLoans) {
+    if (!contributions) return 'Suggestion pour vous';
+
+    const entries = Object.entries(contributions);
+    const [topKey] = entries.sort((a, b) => b[1] - a[1])[0] || [];
+
+    switch (topKey) {
+      case 'historySimilarity':
+        return userLoans.length > 0
+          ? 'Basé sur vos emprunts précédents'
+          : 'Suggestion pour vous';
+      case 'categoryPopularity':
+        return 'Populaire parmi vos genres favoris';
+      case 'trend':
+        return 'Tendance en ce moment';
+      case 'seasonality':
+        return 'Suggestion de saison';
+      case 'newArrivals':
+        return 'Nouveau dans votre médiathèque';
+      default:
+        return 'Suggestion pour vous';
+    }
   }
 
   /**

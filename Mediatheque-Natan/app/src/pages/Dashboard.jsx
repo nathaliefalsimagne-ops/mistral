@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useDatabase } from '../contexts/DatabaseContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { getRecommendationEngine } from '../services';
 import {
   LayoutDashboard,
   Film,
@@ -50,40 +51,20 @@ const Dashboard = () => {
           .slice(0, 5);
         setRecentMedia(recent);
 
-        // Générer des recommandations simulées (à remplacer par le vrai moteur)
-        const mockRecommendations = [
-          {
-            id: 'rec-1',
-            mediaId: 'media-1',
-            title: 'Inception',
-            type: 'Blu-ray',
-            year: 2010,
-            rating: 9.2,
-            reason: 'Vous avez aimé The Dark Knight',
-            image: '/images/inception.jpg'
-          },
-          {
-            id: 'rec-2',
-            mediaId: 'media-2',
-            title: 'Interstellar',
-            type: 'Blu-ray',
-            year: 2014,
-            rating: 9.1,
-            reason: 'Similaire à vos films préférés',
-            image: '/images/interstellar.jpg'
-          },
-          {
-            id: 'rec-3',
-            mediaId: 'media-3',
-            title: 'The Prestige',
-            type: 'DVD',
-            year: 2006,
-            rating: 8.5,
-            reason: 'Même réalisateur que Inception',
-            image: '/images/prestige.jpg'
-          }
-        ];
-        setRecommendations(mockRecommendations);
+        // Recommandations réelles, basées sur la collection et les emprunts
+        if (user?.id) {
+          const engine = await getRecommendationEngine(window.electronAPI.db);
+          const engineResults = await engine.getHomepageRecommendations(user.id);
+          setRecommendations(engineResults.map(({ media: recMedia, reason }) => ({
+            id: recMedia.id,
+            mediaId: recMedia.id,
+            title: recMedia.title,
+            type: window.electronAPI.utils.getMediaTypeLabel(recMedia.type_id),
+            year: recMedia.release_year,
+            rating: recMedia.average_rating,
+            reason
+          })));
+        }
       } catch (error) {
         console.error('Erreur lors du chargement du tableau de bord:', error);
       }
@@ -92,7 +73,7 @@ const Dashboard = () => {
     if (!isLoading) {
       loadData();
     }
-  }, [media, isLoading, getStats]);
+  }, [media, isLoading, getStats, user]);
 
   // Afficher un message de bienvenue
   useEffect(() => {
