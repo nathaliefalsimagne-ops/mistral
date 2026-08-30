@@ -1,4 +1,5 @@
 const path = require('path');
+const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
@@ -8,7 +9,16 @@ module.exports = {
   target: 'electron-renderer',
   output: {
     filename: 'renderer.js',
-    path: path.resolve(__dirname, 'dist')
+    path: path.resolve(__dirname, 'dist'),
+    // Chemin relatif requis pour que les chunks se chargent correctement une
+    // fois l'app servie en file:// (mode production packagée), où l'inférence
+    // automatique du publicPath ne fonctionne pas de façon fiable.
+    publicPath: './',
+    // `target: 'electron-renderer'` fait supposer à webpack un environnement
+    // Node (son runtime interne de chargement de chunks référence `global`),
+    // mais cette fenêtre a nodeIntegration désactivé : `global` n'existe pas
+    // réellement. `globalThis` fonctionne dans les deux cas.
+    globalObject: 'globalThis'
   },
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json', '.css', '.scss'],
@@ -98,6 +108,12 @@ module.exports = {
     new MiniCssExtractPlugin({
       filename: '[name].[hash:8].css',
       chunkFilename: '[id].[hash:8].css'
+    }),
+    // Webpack 5 ne polyfille plus automatiquement les globales Node pour les
+    // cibles navigateur ; certaines dépendances bundlées référencent encore
+    // `global` (alias Node de `globalThis`).
+    new webpack.DefinePlugin({
+      global: 'globalThis'
     })
   ],
   devServer: {

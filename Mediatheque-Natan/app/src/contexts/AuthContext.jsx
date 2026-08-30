@@ -1,106 +1,112 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children, onLogin, onLogout }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [profiles, setProfiles] = useState([]);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
 
-  // Vérifier l'authentification au montage
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // Pour l'instant, on désactive l'authentification
-        // Dans une version future, on vérifiera le token
-        setIsAuthenticated(false);
-        setUser(null);
-      } catch (error) {
-        console.error('Erreur lors de la vérification de l\'authentification:', error);
-        setIsAuthenticated(false);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
+  // Charger la liste des profils au montage (écran "qui regarde ?")
+  const loadProfiles = useCallback(async () => {
+    setIsLoadingProfiles(true);
+    try {
+      const response = await window.electronAPI.profiles.list();
+      if (response.success) {
+        setProfiles(response.data);
       }
-    };
-
-    checkAuth();
+    } catch (error) {
+      console.error('Erreur lors du chargement des profils:', error);
+    } finally {
+      setIsLoadingProfiles(false);
+    }
   }, []);
 
-  // Connexion
-  const login = useCallback(async (credentials) => {
-    try {
-      // Simuler une connexion (à remplacer par un appel API réel)
-      // const response = await window.electronAPI.auth.login(credentials);
-      
-      // Pour l'instant, on accepte n'importe quel login
-      const mockUser = {
-        id: 'user-1',
-        firstName: 'Nathalie',
-        lastName: 'FALSIMAGNE',
-        email: 'nathalie@natan-consulting.com',
-        accessLevel: 3, // Admin
-        avatar: null
-      };
-      
-      setUser(mockUser);
-      setIsAuthenticated(true);
-      onLogin?.(mockUser);
-      
-      return { success: true, user: mockUser };
-    } catch (error) {
-      console.error('Erreur lors de la connexion:', error);
-      return { success: false, error: error.message };
-    }
-  }, [onLogin]);
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
 
-  // Déconnexion
+  const toAuthUser = (profile) => ({
+    id: profile.id,
+    firstName: profile.first_name,
+    lastName: profile.last_name,
+    avatar: profile.avatar_url,
+    accessLevel: profile.access_level_id
+  });
+
+  // Sélectionner un profil (avec vérification du PIN si le profil en a un)
+  const selectProfile = useCallback(async (profileId, pin) => {
+    setIsLoading(true);
+    try {
+      const verification = await window.electronAPI.profiles.verifyPin(profileId, pin);
+      if (!verification.success) {
+        return { success: false, error: verification.error || 'Code PIN incorrect' };
+      }
+
+      const profile = profiles.find((p) => p.id === profileId);
+      const authUser = toAuthUser(profile || { id: profileId });
+      setUser(authUser);
+      setIsAuthenticated(true);
+      onLogin?.(authUser);
+
+      return { success: true, user: authUser };
+    } catch (error) {
+      console.error('Erreur lors de la sélection du profil:', error);
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [profiles, onLogin]);
+
+  // Créer un nouveau profil
+  const createProfile = useCallback(async (profileData) => {
+    const response = await window.electronAPI.profiles.create(profileData);
+    if (response.success) {
+      await loadProfiles();
+    }
+    return response;
+  }, [loadProfiles]);
+
+  // Modifier un profil existant
+  const updateProfile = useCallback(async (profileId, updates) => {
+    const response = await window.electronAPI.profiles.update({ profileId, ...updates });
+    if (response.success) {
+      await loadProfiles();
+      setUser((prev) => (prev && prev.id === profileId ? { ...prev, ...toAuthUser({ ...updates, id: profileId }) } : prev));
+    }
+    return response;
+  }, [loadProfiles]);
+
+  // Supprimer un profil
+  const deleteProfile = useCallback(async (profileId) => {
+    const response = await window.electronAPI.profiles.delete(profileId);
+    if (response.success) {
+      await loadProfiles();
+    }
+    return response;
+  }, [loadProfiles]);
+
+  // Revenir à l'écran de sélection des profils
   const logout = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
     onLogout?.();
   }, [onLogout]);
 
-  // Inscription (non utilisée pour l'instant)
-  const register = useCallback(async (_userData) => {
-    // TODO: brancher sur le futur système de profils (window.electronAPI.auth.register)
-    return { success: true };
-  }, []);
-
-  // Récupérer le mot de passe
-  const forgotPassword = useCallback(async (_email) => {
-    // TODO: brancher sur le futur système de profils (window.electronAPI.auth.forgotPassword)
-    return { success: true, message: 'Un email de réinitialisation a été envoyé' };
-  }, []);
-
-  // Mettre à jour le profil
-  const updateProfile = useCallback(async (profileData) => {
-    try {
-      // const response = await window.electronAPI.auth.updateProfile(profileData);
-      setUser(prev => ({ ...prev, ...profileData }));
-      return { success: true, user: { ...user, ...profileData } };
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du profil:', error);
-      return { success: false, error: error.message };
-    }
-  }, [user]);
-
-  // Changer le mot de passe
-  const changePassword = useCallback(async (_passwordData) => {
-    // TODO: brancher sur le futur système de profils (window.electronAPI.auth.changePassword)
-    return { success: true, message: 'Mot de passe changé avec succès' };
-  }, []);
-
   const value = {
     user,
     isAuthenticated,
     isLoading,
-    login,
-    logout,
-    register,
-    forgotPassword,
+    profiles,
+    isLoadingProfiles,
+    loadProfiles,
+    selectProfile,
+    createProfile,
     updateProfile,
-    changePassword
+    deleteProfile,
+    logout
   };
 
   return (

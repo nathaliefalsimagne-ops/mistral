@@ -204,6 +204,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     searchTMDB: (query, type) => ipcRenderer.invoke('search-tmdb', { query, type }),
     searchMusicBrainz: (query) => ipcRenderer.invoke('search-musicbrainz', { query })
   },
+
+  // Méthodes pour les profils (façon Netflix)
+  profiles: {
+    list: () => ipcRenderer.invoke('list-profiles'),
+    create: (profile) => ipcRenderer.invoke('create-profile', profile),
+    update: (update) => ipcRenderer.invoke('update-profile-details', update),
+    delete: (profileId) => ipcRenderer.invoke('delete-profile', { profileId }),
+    verifyPin: (profileId, pin) => ipcRenderer.invoke('verify-profile-pin', { profileId, pin })
+  },
   
   // Méthodes pour les notifications
   notify: {

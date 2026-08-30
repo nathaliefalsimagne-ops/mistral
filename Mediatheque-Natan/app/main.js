@@ -7,6 +7,7 @@ const { SCHEMA_SQL } = require('./db-schema');
 const { importMovieBuddyRows } = require('./importers/movieBuddy');
 const csvParser = require('csv-parser');
 const axios = require('axios');
+const bcrypt = require('bcryptjs');
 
 // Configuration du logging (remplace electronLog par console)
 const log = console;
@@ -227,7 +228,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
+    mainWindow.loadFile(path.join(__dirname, 'index.html'));
   }
 
   // Gérer la fermeture
@@ -704,6 +705,123 @@ function setupIPC() {
       log.error('Erreur lors de la recherche MusicBrainz:', error.message);
       return { success: false, error: 'Erreur lors de la recherche MusicBrainz (vérifiez votre connexion internet).' };
     }
+  });
+
+  // --- Profils (façon Netflix) ---
+  // Le PIN du profil est stocké dans la colonne `password_hash` de `users`
+  // (haché avec bcrypt). Un profil sans PIN a `password_hash` à NULL.
+
+  ipcMain.handle('list-profiles', () => {
+    return new Promise((resolve) => {
+      db.all(
+        `SELECT id, first_name, last_name, avatar_url, access_level_id,
+                (password_hash IS NOT NULL) AS has_pin
+         FROM users WHERE is_active = 1 ORDER BY created_at ASC`,
+        (err, rows) => {
+          if (err) {
+            log.error('Erreur lors du chargement des profils:', err);
+            resolve({ success: false, error: err.message });
+          } else {
+            resolve({ success: true, data: rows.map((r) => ({ ...r, has_pin: !!r.has_pin })) });
+          }
+        }
+      );
+    });
+  });
+
+  ipcMain.handle('create-profile', async (event, { firstName, lastName, avatarUrl, pin, accessLevelId = 2 }) => {
+    try {
+      if (!firstName?.trim()) {
+        return { success: false, error: 'Le prénom du profil est requis.' };
+      }
+      if (pin && !/^\d{4,6}$/.test(pin)) {
+        return { success: false, error: 'Le code PIN doit contenir entre 4 et 6 chiffres.' };
+      }
+
+      const id = uuid.v4();
+      const pinHash = pin ? await bcrypt.hash(pin, 10) : null;
+
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO users (id, first_name, last_name, avatar_url, access_level_id, password_hash) VALUES (?, ?, ?, ?, ?, ?)',
+          [id, firstName.trim(), (lastName || '').trim(), avatarUrl || null, accessLevelId, pinHash],
+          (err) => (err ? reject(err) : resolve())
+        );
+      });
+
+      await new Promise((resolve, reject) => {
+        db.run('INSERT OR IGNORE INTO user_profiles (user_id) VALUES (?)', [id], (err) => (err ? reject(err) : resolve()));
+      });
+
+      return { success: true, data: { id } };
+    } catch (error) {
+      log.error('Erreur lors de la création du profil:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('update-profile-details', async (event, { profileId, firstName, lastName, avatarUrl, pin, clearPin }) => {
+    try {
+      if (pin && !/^\d{4,6}$/.test(pin)) {
+        return { success: false, error: 'Le code PIN doit contenir entre 4 et 6 chiffres.' };
+      }
+
+      const fields = [];
+      const values = [];
+      if (firstName !== undefined) { fields.push('first_name = ?'); values.push(firstName.trim()); }
+      if (lastName !== undefined) { fields.push('last_name = ?'); values.push(lastName.trim()); }
+      if (avatarUrl !== undefined) { fields.push('avatar_url = ?'); values.push(avatarUrl); }
+      if (pin) { fields.push('password_hash = ?'); values.push(await bcrypt.hash(pin, 10)); }
+      if (clearPin) { fields.push('password_hash = NULL'); }
+
+      if (fields.length === 0) return { success: true };
+
+      values.push(profileId);
+      await new Promise((resolve, reject) => {
+        db.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values, (err) => (err ? reject(err) : resolve()));
+      });
+
+      return { success: true };
+    } catch (error) {
+      log.error('Erreur lors de la mise à jour du profil:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('delete-profile', (event, { profileId }) => {
+    return new Promise((resolve) => {
+      // Suppression douce : préserve l'historique des emprunts liés à ce profil
+      db.run('UPDATE users SET is_active = 0 WHERE id = ?', [profileId], (err) => {
+        if (err) {
+          log.error('Erreur lors de la suppression du profil:', err);
+          resolve({ success: false, error: err.message });
+        } else {
+          resolve({ success: true });
+        }
+      });
+    });
+  });
+
+  ipcMain.handle('verify-profile-pin', (event, { profileId, pin }) => {
+    return new Promise((resolve) => {
+      db.get('SELECT password_hash FROM users WHERE id = ? AND is_active = 1', [profileId], async (err, row) => {
+        if (err) {
+          log.error('Erreur lors de la vérification du PIN:', err);
+          resolve({ success: false, error: err.message });
+          return;
+        }
+        if (!row) {
+          resolve({ success: false, error: 'Profil introuvable.' });
+          return;
+        }
+        if (!row.password_hash) {
+          resolve({ success: true });
+          return;
+        }
+        const match = await bcrypt.compare(pin || '', row.password_hash);
+        resolve(match ? { success: true } : { success: false, error: 'Code PIN incorrect.' });
+      });
+    });
   });
 }
 

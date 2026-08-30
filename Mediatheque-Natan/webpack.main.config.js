@@ -1,8 +1,9 @@
 const path = require('path');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
-  mode: 'development',
+  mode: process.env.NODE_ENV || 'development',
   entry: './app/main.js',
   target: 'electron-main',
   output: {
@@ -28,7 +29,13 @@ module.exports = {
     ]
   },
   plugins: [
-    new CleanWebpackPlugin()
+    new CleanWebpackPlugin(),
+    new CopyWebpackPlugin({
+      patterns: [
+        { from: path.resolve(__dirname, 'app/preload.js'), to: 'preload.js' },
+        { from: path.resolve(__dirname, 'app/public/icon.png'), to: 'public/icon.png', noErrorOnMissing: true }
+      ]
+    })
   ],
   node: {
     __dirname: false,

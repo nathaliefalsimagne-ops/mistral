@@ -9,12 +9,11 @@
   
   <!-- Favicon -->
   <link rel="icon" href="icon.png" type="image/png">
-  
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
+
+  <!-- Pas de police externe (Google Fonts) : l'app est 100% offline et ne doit
+       pas dépendre d'une connexion internet pour s'afficher. La pile de
+       polices système déclarée dans index.css sert de secours. -->
+
   <!-- Meta -->
   <meta name="description" content="Gestion intelligente de CDs, DVDs et Blu-rays avec profilage utilisateur et recommandations">
   <meta name="author" content="Nathalie FALSIMAGNE - NATAN Consulting">
@@ -172,8 +171,5 @@
       <div class="loading-text">Chargement de Médiathèque NATAN...</div>
     </div>
   </div>
-  
-  <!-- Scripts -->
-  <script src="renderer.js"></script>
 </body>
 </html>

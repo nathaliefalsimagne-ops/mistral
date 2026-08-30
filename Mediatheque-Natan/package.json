@@ -87,6 +87,7 @@
     "@zxing/browser": "^0.1.4",
     "@zxing/library": "^0.21.0",
     "axios": "^1.6.7",
+    "bcryptjs": "^2.4.3",
     "chart.js": "^4.4.1",
     "clsx": "^2.1.0",
     "cross-env": "^7.0.3",

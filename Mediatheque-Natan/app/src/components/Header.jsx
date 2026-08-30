@@ -211,11 +211,9 @@ const Header = ({ onMenuClick, isSidebarCollapsed }) => {
               className="flex items-center gap-sm p-sm rounded hover:bg-tertiary transition-colors"
             >
               {user?.avatar ? (
-                <img 
-                  src={user.avatar} 
-                  alt="Avatar"
-                  className="w-8 h-8 rounded-full object-cover"
-                />
+                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-lg">
+                  {user.avatar}
+                </div>
               ) : (
                 <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
                   <User className="w-4 h-4 text-white" />
