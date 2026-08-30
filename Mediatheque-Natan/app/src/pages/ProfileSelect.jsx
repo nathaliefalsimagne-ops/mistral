@@ -12,16 +12,18 @@ const ProfileTile = ({ profile, isManaging, onSelect, onEdit, onDelete }) => (
     <button
       type="button"
       onClick={() => (isManaging ? onEdit(profile) : onSelect(profile))}
-      className="relative w-28 h-28 rounded-xl bg-secondary flex items-center justify-center text-5xl hover:ring-4 hover:ring-accent transition-all"
+      className="flex flex-col items-center gap-sm group"
     >
-      {profile.avatar_url || '👤'}
-      {isManaging && (
-        <span className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center">
-          <Pencil className="w-8 h-8 text-white" />
-        </span>
-      )}
+      <span className="relative w-28 h-28 rounded-xl bg-secondary flex items-center justify-center text-5xl group-hover:ring-4 group-hover:ring-accent transition-all">
+        {profile.avatar_url || '👤'}
+        {isManaging && (
+          <span className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center">
+            <Pencil className="w-8 h-8 text-white" />
+          </span>
+        )}
+      </span>
+      <span className="text-sm text-center max-w-[7rem] truncate">{profile.first_name}</span>
     </button>
-    <span className="text-sm text-center max-w-[7rem] truncate">{profile.first_name}</span>
     {isManaging && (
       <button
         type="button"
