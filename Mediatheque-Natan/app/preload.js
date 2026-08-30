@@ -71,10 +71,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     searchMedia: (query) => {
       return ipcRenderer.invoke('db-query', {
-        sql: `SELECT * FROM media 
-               WHERE title LIKE ? OR original_title LIKE ? OR synopsis LIKE ?
-               ORDER BY title`,
-        params: [`%${query}%`, `%${query}%`, `%${query}%`]
+        sql: `SELECT DISTINCT media.* FROM media
+               LEFT JOIN media_persons ON media_persons.media_id = media.id
+               LEFT JOIN persons ON persons.id = media_persons.person_id
+               WHERE media.title LIKE ? OR media.original_title LIKE ? OR media.synopsis LIKE ?
+                  OR persons.first_name LIKE ? OR persons.last_name LIKE ?
+               ORDER BY media.title`,
+        params: Array(5).fill(`%${query}%`)
       });
     },
     

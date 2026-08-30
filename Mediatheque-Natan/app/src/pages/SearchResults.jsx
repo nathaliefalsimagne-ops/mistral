@@ -7,7 +7,7 @@ import { Search, X, Filter, LayoutGrid, LayoutList } from 'lucide-react';
 const SearchResults = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { media, isLoading, searchMedia, updateFilters, filters } = useDatabase();
+  const { media, isLoading, searchMedia } = useDatabase();
   const { error: showError } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,8 +41,7 @@ const SearchResults = () => {
       
       if (response.success) {
         setResults(response.data);
-        updateFilters({ search: query });
-        
+
         // Mettre à jour l'URL
         navigate(`/search?q=${encodeURIComponent(query)}`);
       } else {
@@ -56,15 +55,14 @@ const SearchResults = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [searchMedia, showError, updateFilters, navigate, media]);
+  }, [searchMedia, showError, navigate, media]);
 
   // Effacer la recherche
   const clearSearch = useCallback(() => {
     setSearchQuery('');
     setResults(media);
-    updateFilters({ search: '' });
     navigate('/search');
-  }, [media, updateFilters, navigate]);
+  }, [media, navigate]);
 
   // Gérer la soumission du formulaire
   const handleSubmit = useCallback((e) => {
