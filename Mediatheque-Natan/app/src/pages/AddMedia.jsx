@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { useDatabase } from '../contexts/DatabaseContext';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -25,6 +25,7 @@ import {
 const AddMedia = ({ isEdit = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { media: allMedia, getMediaById, addMedia, updateMedia, locations, locationTypes, categories, persons, createLocation } = useDatabase();
   const { success, error: showError } = useToast();
@@ -110,6 +111,22 @@ const AddMedia = ({ isEdit = false }) => {
       setMedia(prev => ({ ...prev, barcode: scannedBarcode }));
     }
   }, [isEdit, searchParams]);
+
+  // Récupérer la photo prise/importée depuis "Prendre une photo" (utile
+  // notamment quand le média n'existe pas sur TMDB : la photo est alors le
+  // seul moyen d'illustrer la jaquette), ainsi que la saisie en cours avant
+  // le départ vers cette page (titre, année, catégories...). Transmis via le
+  // state de navigation (et non l'URL) car une image encodée en base64
+  // dépasserait les limites de longueur d'une query string.
+  useEffect(() => {
+    const { jacketImage, draftMedia, draftCategories, draftPersons } = location.state || {};
+    if (!isEdit && (jacketImage || draftMedia)) {
+      setMedia(prev => ({ ...prev, ...draftMedia, ...(jacketImage && { jacket_image_url: jacketImage }) }));
+      if (draftCategories) setSelectedCategories(draftCategories);
+      if (draftPersons) setSelectedPersons(draftPersons);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, location.state]);
 
   // Pré-remplir automatiquement depuis un film TMDB déjà identifié
   // (ex: clic sur un film manquant d'une collection depuis le tableau de
@@ -376,10 +393,15 @@ const AddMedia = ({ isEdit = false }) => {
     navigate('/scan?from=add-media');
   }, [navigate]);
 
-  // Prendre une photo pour la reconnaissance visuelle
+  // Prendre une photo pour la reconnaissance visuelle. On transmet la saisie
+  // en cours (titre, année...) via le state de navigation : sans ça, quitter
+  // la page pour aller photographier la jaquette ferait perdre tout ce qui a
+  // déjà été rempli, obligeant à ressaisir le formulaire au retour.
   const handleTakePhoto = useCallback(() => {
-    navigate('/recognize?from=add-media');
-  }, [navigate]);
+    navigate('/recognize?from=add-media', {
+      state: { draftMedia: media, draftCategories: selectedCategories, draftPersons: selectedPersons }
+    });
+  }, [navigate, media, selectedCategories, selectedPersons]);
 
   // Annuler et retourner
   const handleCancel = useCallback(() => {

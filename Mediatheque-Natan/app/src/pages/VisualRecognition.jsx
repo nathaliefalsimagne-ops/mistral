@@ -22,6 +22,7 @@ const VisualRecognition = () => {
   const location = useLocation();
   const { success, error: showError } = useToast();
   const { searchMedia, addMedia } = useDatabase();
+  const fromAddMedia = new URLSearchParams(location.search).get('from') === 'add-media';
 
   const [stream, setStream] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
@@ -268,7 +269,7 @@ const VisualRecognition = () => {
     // Vérifier d'où vient la requête
     const params = new URLSearchParams(location.search);
     const from = params.get('from');
-    
+
     if (from === 'add-media') {
       // Retourner à la page d'ajout avec le titre
       navigate(`/media/add?title=${encodeURIComponent(result.label)}`);
@@ -277,6 +278,18 @@ const VisualRecognition = () => {
       navigate(`/search?q=${encodeURIComponent(result.label)}`);
     }
   }, [navigate, location.search]);
+
+  // Utiliser la photo capturée/importée comme jaquette d'un média en cours
+  // d'ajout, sans passer par la reconnaissance IA (label ImageNet générique,
+  // inutile pour identifier un titre précis - notamment un média absent de
+  // TMDB, cas où cette photo est justement le seul moyen de l'illustrer).
+  // La photo transite par le state de navigation plutôt que par l'URL : une
+  // image encodée en base64 dépasserait largement les limites de longueur
+  // d'une query string.
+  const useAsJacketPhoto = useCallback(() => {
+    const { draftMedia, draftCategories, draftPersons } = location.state || {};
+    navigate('/media/add', { state: { jacketImage: capturedImage, draftMedia, draftCategories, draftPersons } });
+  }, [navigate, capturedImage, location.state]);
 
   // Démarrer/arrêter le scan automatique
   useEffect(() => {
@@ -356,18 +369,28 @@ const VisualRecognition = () => {
                 >
                   <RotateCcw className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={analyzeImage}
-                  disabled={isProcessing}
-                  className="bg-accent text-white p-sm rounded-full hover:bg-accent-light transition-colors disabled:opacity-50"
-                  title="Analyser"
-                >
-                  {isProcessing ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                  ) : (
-                    <Search className="w-5 h-5" />
-                  )}
-                </button>
+                {fromAddMedia ? (
+                  <button
+                    onClick={useAsJacketPhoto}
+                    className="flex items-center gap-sm bg-accent text-white px-md py-sm rounded-full hover:bg-accent-light transition-colors"
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                    <span>Utiliser cette photo</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={analyzeImage}
+                    disabled={isProcessing}
+                    className="bg-accent text-white p-sm rounded-full hover:bg-accent-light transition-colors disabled:opacity-50"
+                    title="Analyser"
+                  >
+                    {isProcessing ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Search className="w-5 h-5" />
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           ) : (
