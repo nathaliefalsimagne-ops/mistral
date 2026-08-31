@@ -34,7 +34,7 @@ const AddMedia = ({ isEdit = false }) => {
     id: '',
     title: '',
     original_title: '',
-    type_id: 1,
+    type_id: 2,
     release_year: '',
     duration_minutes: '',
     synopsis: '',
@@ -550,9 +550,9 @@ const AddMedia = ({ isEdit = false }) => {
                 className="w-full bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
                 required
               >
-                <option value="1">DVD</option>
                 <option value="2">Blu-ray</option>
                 <option value="3">CD</option>
+                <option value="1">DVD</option>
               </select>
             </div>
 
