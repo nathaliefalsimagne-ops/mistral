@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { DatabaseProvider } from './contexts/DatabaseContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -28,6 +28,7 @@ import LoadingScreen from './components/LoadingScreen';
 // "Qui regarde ?" ou l'application complète pour le profil sélectionné.
 const AppRoutes = () => {
   const { isAuthenticated, isLoadingProfiles } = useAuth();
+  const location = useLocation();
 
   if (isLoadingProfiles) {
     return <LoadingScreen />;
@@ -52,7 +53,13 @@ const AppRoutes = () => {
             <Route path="/media" element={<MediaLibrary />} />
             <Route path="/media/:type" element={<MediaLibrary />} />
             <Route path="/media/detail/:id" element={<MediaDetail />} />
-            <Route path="/media/add" element={<AddMedia />} />
+            {/* key={location.key} force un remontage complet du formulaire à
+                chaque navigation vers cette page, même en cliquant à nouveau
+                sur "Ajouter un média" alors qu'on s'y trouve déjà (bouton +
+                de l'en-tête) - sans ça, React Router ne remonte pas le
+                composant pour une navigation vers le même chemin, et la
+                saisie précédente restait affichée. */}
+            <Route path="/media/add" element={<AddMedia key={location.key} />} />
             <Route path="/media/edit/:id" element={<AddMedia isEdit />} />
             <Route path="/search" element={<SearchResults />} />
             <Route path="/settings" element={<Settings />} />
