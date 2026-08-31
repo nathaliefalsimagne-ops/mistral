@@ -227,69 +227,104 @@ const Dashboard = () => {
       </div>
 
       {/* Section principale */}
-      <div className="grid lg:grid-cols-3 gap-lg">
-        {/* Graphique de répartition */}
-        <div className="lg:col-span-2 bg-secondary rounded-xl p-lg">
-          <div className="flex items-center justify-between mb-lg">
-            <h2 className="text-xl font-semibold">Répartition des médias</h2>
-            <Link to="/stats" className="text-sm text-accent hover:underline">
-              Voir toutes les statistiques
-            </Link>
-          </div>
-          
-          <div>
-            <h3 className="font-medium mb-md">Par type</h3>
-            <div className="space-y-sm">
-              <ProgressBar
-                label="DVDs"
-                value={dvdCount}
-                max={totalMedia}
-                color="bg-info"
-                percentage={Math.round((dvdCount / totalMedia) * 100)}
-              />
-              <ProgressBar
-                label="Blu-rays"
-                value={blurayCount}
-                max={totalMedia}
-                color="bg-success"
-                percentage={Math.round((blurayCount / totalMedia) * 100)}
-              />
-              <ProgressBar
-                label="CDs"
-                value={cdCount}
-                max={totalMedia}
-                color="bg-warning"
-                percentage={Math.round((cdCount / totalMedia) * 100)}
-              />
+      <div className="grid lg:grid-cols-3 gap-lg items-start">
+        {/* Colonne de gauche : répartition + collections incomplètes, à la
+            même largeur (lg:col-span-2) pour ne pas dépendre de la hauteur
+            de la colonne "Recommandations" à droite. */}
+        <div className="lg:col-span-2 space-y-lg">
+          {/* Graphique de répartition */}
+          <div className="bg-secondary rounded-xl p-lg">
+            <div className="flex items-center justify-between mb-lg">
+              <h2 className="text-xl font-semibold">Répartition des médias</h2>
+              <Link to="/stats" className="text-sm text-accent hover:underline">
+                Voir toutes les statistiques
+              </Link>
+            </div>
+
+            <div>
+              <h3 className="font-medium mb-md">Par type</h3>
+              <div className="space-y-sm">
+                <ProgressBar
+                  label="DVDs"
+                  value={dvdCount}
+                  max={totalMedia}
+                  color="bg-info"
+                  percentage={Math.round((dvdCount / totalMedia) * 100)}
+                />
+                <ProgressBar
+                  label="Blu-rays"
+                  value={blurayCount}
+                  max={totalMedia}
+                  color="bg-success"
+                  percentage={Math.round((blurayCount / totalMedia) * 100)}
+                />
+                <ProgressBar
+                  label="CDs"
+                  value={cdCount}
+                  max={totalMedia}
+                  color="bg-warning"
+                  percentage={Math.round((cdCount / totalMedia) * 100)}
+                />
+              </div>
+            </div>
+
+            {/* Taux d'occupation */}
+            <div className="mt-lg pt-lg border-t">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium">Taux d'occupation</h3>
+                  <p className="text-sm text-tertiary">
+                    {totalMedia} médias sur {totalCapacity} emplacements
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold">{occupationRate}%</div>
+                  <div className="text-sm text-tertiary">
+                    {occupationRate > 80 ? 'Presque plein' : occupationRate > 50 ? 'Rempli' : 'Espace disponible'}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-sm">
+                <ProgressBar
+                  value={totalMedia}
+                  max={totalCapacity}
+                  color={occupationRate > 80 ? 'bg-danger' : occupationRate > 50 ? 'bg-warning' : 'bg-success'}
+                  percentage={occupationRate}
+                  showLabel={false}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Taux d'occupation */}
-          <div className="mt-lg pt-lg border-t">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium">Taux d'occupation</h3>
-                <p className="text-sm text-tertiary">
-                  {totalMedia} médias sur {totalCapacity} emplacements
-                </p>
+          {collectionGaps.length > 0 && (
+            <div className="bg-secondary rounded-xl p-lg">
+              <div className="flex items-center gap-sm mb-lg">
+                <Layers size={20} className="text-accent" />
+                <h2 className="text-xl font-semibold">Complétez vos collections</h2>
               </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold">{occupationRate}%</div>
-                <div className="text-sm text-tertiary">
-                  {occupationRate > 80 ? 'Presque plein' : occupationRate > 50 ? 'Rempli' : 'Espace disponible'}
-                </div>
+              <div className="space-y-lg">
+                {collectionGaps.map((gap) => (
+                  <div key={gap.collectionId}>
+                    <p className="font-medium mb-sm">
+                      Il vous manque {gap.missing.length} film{gap.missing.length > 1 ? 's' : ''} de la collection « {gap.collectionName} »
+                    </p>
+                    <div className="flex flex-wrap gap-sm">
+                      {gap.missing.map((film) => (
+                        <Link
+                          key={film.id}
+                          to={`/media/add?tmdbId=${film.id}`}
+                          className="flex items-center gap-xs bg-tertiary rounded-lg px-md py-sm text-sm hover:bg-accent hover:text-white transition-colors"
+                        >
+                          <Plus size={14} />
+                          {film.title}{film.release_year ? ` (${film.release_year})` : ''}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="mt-sm">
-              <ProgressBar
-                value={totalMedia}
-                max={totalCapacity}
-                color={occupationRate > 80 ? 'bg-danger' : occupationRate > 50 ? 'bg-warning' : 'bg-success'}
-                percentage={occupationRate}
-                showLabel={false}
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Recommandations */}
@@ -300,7 +335,7 @@ const Dashboard = () => {
               Personnaliser
             </Link>
           </div>
-          
+
           {recommendations.length > 0 ? (
             <div className="space-y-md">
               {recommendations.map((rec, index) => (
@@ -321,36 +356,6 @@ const Dashboard = () => {
           )}
         </div>
       </div>
-
-      {collectionGaps.length > 0 && (
-        <div className="bg-secondary rounded-xl p-lg">
-          <div className="flex items-center gap-sm mb-lg">
-            <Layers size={20} className="text-accent" />
-            <h2 className="text-xl font-semibold">Complétez vos collections</h2>
-          </div>
-          <div className="space-y-lg">
-            {collectionGaps.map((gap) => (
-              <div key={gap.collectionId}>
-                <p className="font-medium mb-sm">
-                  Il vous manque {gap.missing.length} film{gap.missing.length > 1 ? 's' : ''} de la collection « {gap.collectionName} »
-                </p>
-                <div className="flex flex-wrap gap-sm">
-                  {gap.missing.map((film) => (
-                    <Link
-                      key={film.id}
-                      to={`/media/add?tmdbId=${film.id}`}
-                      className="flex items-center gap-xs bg-tertiary rounded-lg px-md py-sm text-sm hover:bg-accent hover:text-white transition-colors"
-                    >
-                      <Plus size={14} />
-                      {film.title}{film.release_year ? ` (${film.release_year})` : ''}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Médias récents */}
       <div className="bg-secondary rounded-xl p-lg">
