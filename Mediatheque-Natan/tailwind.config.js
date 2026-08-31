@@ -44,7 +44,9 @@ module.exports = {
       },
       zIndex: {
         fixed: '1030',
-        modal: '1000'
+        modal: '1000',
+        dropdown: '900',
+        sticky: '800'
       },
       keyframes: {
         fadeInUp: {
