@@ -1009,6 +1009,10 @@ function setupIPC() {
       const parts = response.data.parts || [];
       const missing = parts
         .filter((p) => !ownedIds.has(p.id))
+        // Tri chronologique : le premier élément de "missing" est ainsi le
+        // prochain film logique à proposer après celui qu'on vient d'ajouter,
+        // pas un épisode pris au hasard dans l'ordre renvoyé par TMDB.
+        .sort((a, b) => (a.release_date || '').localeCompare(b.release_date || ''))
         .map((p) => ({
           id: p.id,
           title: p.title,

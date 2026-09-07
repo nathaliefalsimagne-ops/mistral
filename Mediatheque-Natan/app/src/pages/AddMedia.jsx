@@ -19,7 +19,8 @@ import {
   Users,
   Plus,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Layers
 } from 'lucide-react';
 
 const AddMedia = ({ isEdit = false }) => {
@@ -66,6 +67,7 @@ const AddMedia = ({ isEdit = false }) => {
   const [isCreatingLocation, setIsCreatingLocation] = useState(false);
   const [duplicateMatches, setDuplicateMatches] = useState(null);
   const [isReimportingGenres, setIsReimportingGenres] = useState(false);
+  const [collectionProposal, setCollectionProposal] = useState(null);
 
   // Charger les données si c'est une édition
   useEffect(() => {
@@ -353,7 +355,25 @@ const AddMedia = ({ isEdit = false }) => {
         }
 
         success(`Média ${isEdit ? 'mis à jour' : 'ajouté'} avec succès`);
-        navigate(`/media/detail/${response.data?.lastInsertRowid || media.id}`);
+        const savedId = response.data?.lastInsertRowid || media.id;
+
+        // Un média fraîchement ajouté qui appartient à une collection TMDB
+        // (ex: Harry Potter) est le bon moment pour proposer d'enchaîner sur
+        // le prochain épisode manquant, plutôt que d'attendre qu'elle le
+        // repère plus tard sur le tableau de bord.
+        if (!isEdit && media.tmdb_collection_id) {
+          try {
+            const collectionResponse = await window.electronAPI.api.getCollectionStatus(media.tmdb_collection_id);
+            if (collectionResponse.success && collectionResponse.data.missing.length > 0) {
+              setCollectionProposal({ savedId, ...collectionResponse.data });
+              return;
+            }
+          } catch (collectionErr) {
+            console.error('Erreur lors de la vérification de la collection:', collectionErr);
+          }
+        }
+
+        navigate(`/media/detail/${savedId}`);
       } else {
         showError(response.error || `Erreur lors de l'${isEdit ? 'update' : 'ajout'}`);
       }
@@ -387,6 +407,22 @@ const AddMedia = ({ isEdit = false }) => {
 
     performSave();
   }, [media.title, isEdit, allMedia, showError, performSave]);
+
+  // Enchaîner sur le prochain épisode manquant de la collection proposée
+  // après l'enregistrement (ex: Harry Potter 2 après avoir ajouté le 1).
+  const handleAddNextInCollection = useCallback(() => {
+    const nextFilm = collectionProposal.missing[0];
+    setCollectionProposal(null);
+    navigate(`/media/add?tmdbId=${nextFilm.id}`);
+  }, [collectionProposal, navigate]);
+
+  // Ignorer la proposition et continuer normalement vers la fiche du média
+  // qu'on vient d'ajouter.
+  const handleDismissCollectionProposal = useCallback(() => {
+    const savedId = collectionProposal.savedId;
+    setCollectionProposal(null);
+    navigate(`/media/detail/${savedId}`);
+  }, [collectionProposal, navigate]);
 
   // Scanner un code-barres
   const handleScanBarcode = useCallback(() => {
@@ -1146,6 +1182,43 @@ const AddMedia = ({ isEdit = false }) => {
                 disabled={!newLocation.name.trim() || isCreatingLocation}
               >
                 Créer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Proposition d'enchaîner sur le prochain épisode manquant d'une
+          collection TMDB (ex: Harry Potter) juste après avoir enregistré un
+          média qui en fait partie. */}
+      {collectionProposal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-modal p-md">
+          <div className="bg-secondary rounded-xl p-lg w-full max-w-md">
+            <div className="flex items-center gap-md mb-md">
+              <Layers className="w-6 h-6 text-accent flex-shrink-0" />
+              <h2 className="text-xl font-semibold">Complétez la collection</h2>
+            </div>
+            <p className="text-sm text-tertiary mb-lg">
+              Il vous manque {collectionProposal.missing.length} film{collectionProposal.missing.length > 1 ? 's' : ''} de la collection « {collectionProposal.collectionName} ». Ajouter le prochain maintenant ?
+            </p>
+            <div className="bg-tertiary rounded-lg px-md py-sm text-sm mb-lg">
+              <span className="font-medium">{collectionProposal.missing[0].title}</span>
+              {collectionProposal.missing[0].release_year ? ` (${collectionProposal.missing[0].release_year})` : ''}
+            </div>
+            <div className="flex items-center justify-end gap-md">
+              <button
+                type="button"
+                onClick={handleDismissCollectionProposal}
+                className="bg-primary border rounded px-lg py-sm hover:bg-tertiary transition-colors"
+              >
+                Plus tard
+              </button>
+              <button
+                type="button"
+                onClick={handleAddNextInCollection}
+                className="bg-accent text-white px-lg py-sm rounded hover:bg-accent-light transition-colors"
+              >
+                Ajouter « {collectionProposal.missing[0].title} »
               </button>
             </div>
           </div>
