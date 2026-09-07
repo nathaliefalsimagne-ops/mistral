@@ -127,16 +127,32 @@ const VisualRecognition = () => {
   const captureImage = useCallback(() => {
     if (!videoRef.current) return;
 
+    const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Définir la taille du canvas
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    
+    // Les webcams filment en paysage (16:9) mais une jaquette de DVD/Blu-ray
+    // est au format portrait : on recadre donc la capture en un rectangle
+    // portrait (ratio 2:3, proche d'une vraie jaquette) centré dans l'image,
+    // au lieu de conserver tout le champ paysage.
+    const sourceWidth = video.videoWidth;
+    const sourceHeight = video.videoHeight;
+    const targetRatio = 2 / 3; // largeur / hauteur
+    let cropWidth = sourceHeight * targetRatio;
+    let cropHeight = sourceHeight;
+    if (cropWidth > sourceWidth) {
+      cropWidth = sourceWidth;
+      cropHeight = sourceWidth / targetRatio;
+    }
+    const cropX = (sourceWidth - cropWidth) / 2;
+    const cropY = (sourceHeight - cropHeight) / 2;
+
+    canvas.width = cropWidth;
+    canvas.height = cropHeight;
+
     const context = canvas.getContext('2d');
-    context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-    
+    context.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
     // Obtenir l'image en base64
     const imageData = canvas.toDataURL('image/jpeg');
     setCapturedImage(imageData);
@@ -353,7 +369,7 @@ const VisualRecognition = () => {
 
           {/* Prévisualisation de la caméra */}
           {capturedImage ? (
-            <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
+            <div className="relative bg-black rounded-lg overflow-hidden mx-auto max-w-sm" style={{ aspectRatio: '2/3' }}>
               <img
                 src={capturedImage}
                 alt="Capturée"
@@ -394,7 +410,7 @@ const VisualRecognition = () => {
               </div>
             </div>
           ) : (
-            <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
+            <div className="relative bg-black rounded-lg overflow-hidden mx-auto max-w-sm" style={{ aspectRatio: '2/3' }}>
               <video
                 ref={videoRef}
                 autoPlay
