@@ -23,7 +23,7 @@ import {
 const MediaDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getMediaById, deleteMedia, isLoading, locations, locationTypes, users } = useDatabase();
+  const { getMediaById, deleteMedia, updateMedia, refreshData, isLoading, locations, locationTypes, users } = useDatabase();
   const { success, error: showError } = useToast();
   const { user } = useAuth();
 
@@ -113,55 +113,91 @@ const MediaDetail = () => {
     }
   }, [id, media?.title, deleteMedia, showError, success, navigate]);
 
-  // Mettre à jour la note
+  // Mettre à jour la note. Note : media contient déjà l'enregistrement
+  // complet (chargé via getMediaById), donc le ré-envoyer intégralement à
+  // updateMedia avec juste average_rating modifié est sûr.
   const handleRatingChange = useCallback(async (newRating) => {
     try {
-      // Mettre à jour la note dans la base
-      // Cela serait implémenté avec un appel API
-      setMedia(prev => ({ ...prev, average_rating: newRating }));
-      success('Note mise à jour');
+      const response = await updateMedia({ ...media, average_rating: newRating });
+      if (response.success) {
+        setMedia(prev => ({ ...prev, average_rating: newRating }));
+        success('Note mise à jour');
+      } else {
+        showError(response.error || 'Erreur lors de la mise à jour de la note');
+      }
     } catch (err) {
       showError(`Erreur lors de la mise à jour de la note: ${err.message}`);
     }
-  }, [success, showError]);
+  }, [media, updateMedia, success, showError]);
 
-  // Emprunter le média
+  // Emprunter le média. Insère réellement une ligne dans la table loans -
+  // jusqu'ici cette action ne mettait à jour que l'état local de cette page
+  // (setLoans), sans jamais toucher la base : l'emprunt disparaissait donc
+  // dès qu'on quittait la fiche, n'apparaissait jamais dans l'onglet
+  // "Emprunts", et le moteur de recommandation (qui lit les emprunts réels)
+  // n'en avait connaissance.
   const handleBorrow = useCallback(async () => {
-    try {
-      // Créer un nouvel emprunt
-      // Cela serait implémenté avec un appel API
-      const newLoan = {
-        id: window.electronAPI.utils.generateId(),
-        user_id: user?.id || 'user-1',
-        media_id: id,
-        loan_date: new Date().toISOString(),
-        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 jours
-        return_date: null,
-        user_rating: null,
-        user_note: null
-      };
+    if (!user?.id) {
+      showError('Aucun profil actif pour effectuer cet emprunt');
+      return;
+    }
 
-      // Ajouter à la liste des emprunts
-      setLoans(prev => [newLoan, ...prev]);
-      success('Média emprunté avec succès');
+    try {
+      const response = await window.electronAPI.db.execute({
+        sql: `INSERT INTO loans (id, user_id, media_id, loan_date, due_date, user_note)
+              VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?)`,
+        params: [
+          window.electronAPI.utils.generateId(),
+          user.id,
+          id,
+          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          null
+        ]
+      });
+
+      if (response.success) {
+        const loansResponse = await window.electronAPI.db.getLoans({ mediaId: id });
+        if (loansResponse.success) {
+          setLoans(loansResponse.data.map(loan => {
+            const loanUser = users.find(u => u.id === loan.user_id);
+            return {
+              ...loan,
+              user_name: loanUser ? `${loanUser.first_name} ${loanUser.last_name}` : 'Utilisateur inconnu'
+            };
+          }));
+        }
+        refreshData();
+        success('Média emprunté avec succès');
+      } else {
+        showError(response.error || 'Erreur lors de l\'emprunt');
+      }
     } catch (err) {
       showError(`Erreur lors de l'emprunt: ${err.message}`);
     }
-  }, [id, user?.id, success, showError]);
+  }, [id, user?.id, users, refreshData, success, showError]);
 
-  // Retourner le média
+  // Retourner le média. Idem : met réellement à jour la ligne loans en base
+  // au lieu de se contenter d'un état local perdu à la navigation suivante.
   const handleReturn = useCallback(async (loanId) => {
     try {
-      // Mettre à jour l'emprunt
-      // Cela serait implémenté avec un appel API
-      setLoans(prev => prev.map(loan =>
-        loan.id === loanId ? { ...loan, return_date: new Date().toISOString() } : loan
-      ));
-      success('Média retourné avec succès');
+      const response = await window.electronAPI.db.execute({
+        sql: `UPDATE loans SET return_date = CURRENT_TIMESTAMP, return_state = ? WHERE id = ?`,
+        params: ['Bon', loanId]
+      });
+
+      if (response.success) {
+        setLoans(prev => prev.map(loan =>
+          loan.id === loanId ? { ...loan, return_date: new Date().toISOString() } : loan
+        ));
+        refreshData();
+        success('Média retourné avec succès');
+      } else {
+        showError(response.error || 'Erreur lors du retour');
+      }
     } catch (err) {
       showError(`Erreur lors du retour: ${err.message}`);
     }
-  }, [success, showError]);
+  }, [refreshData, success, showError]);
 
   // Obtenir le nom du type de média
   const getTypeName = (typeId) => {
