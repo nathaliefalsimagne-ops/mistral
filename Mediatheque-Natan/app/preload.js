@@ -247,6 +247,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getTmdbCredits: (id, type) => ipcRenderer.invoke('get-tmdb-credits', { id, type }),
     getTmdbGenres: (id, type) => ipcRenderer.invoke('get-tmdb-genres', { id, type }),
     getCollectionStatus: (collectionId) => ipcRenderer.invoke('get-collection-status', { collectionId }),
+    dismissCollectionItem: (tmdbId) => ipcRenderer.invoke('dismiss-collection-item', { tmdbId }),
     searchMusicBrainz: (query) => ipcRenderer.invoke('search-musicbrainz', { query })
   },
 

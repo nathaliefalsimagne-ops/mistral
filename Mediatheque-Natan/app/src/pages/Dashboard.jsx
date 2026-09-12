@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDatabase } from '../contexts/DatabaseContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,7 +17,8 @@ import {
   Search,
   BarChart3,
   Archive,
-  Layers
+  Layers,
+  X
 } from 'lucide-react';
 
 // Obtenir la couleur de l'état d'un média
@@ -34,7 +35,7 @@ const getStateColor = (stateId) => {
 const Dashboard = () => {
   const { media, locations, users, loans, isLoading, getStats } = useDatabase();
   const { user } = useAuth();
-  const { success } = useToast();
+  const { success, error: showError } = useToast();
   const [stats, setStats] = useState(null);
   const [recentMedia, setRecentMedia] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
@@ -113,6 +114,27 @@ const Dashboard = () => {
       loadCollectionGaps();
     }
   }, [media, isLoading]);
+
+  // Écarter définitivement une proposition de "Complétez vos collections"
+  // (ex: un film qu'on ne souhaite pas acheter) - elle ne sera plus jamais
+  // reproposée. Met aussi à jour l'état local pour un retrait immédiat,
+  // sans attendre un nouvel appel TMDB.
+  const handleDismissCollectionItem = useCallback(async (collectionId, tmdbId) => {
+    try {
+      const response = await window.electronAPI.api.dismissCollectionItem(tmdbId);
+      if (response.success) {
+        setCollectionGaps(prev => prev
+          .map(gap => gap.collectionId === collectionId
+            ? { ...gap, missing: gap.missing.filter(film => film.id !== tmdbId) }
+            : gap)
+          .filter(gap => gap.missing.length > 0));
+      } else {
+        showError(response.error || 'Erreur lors du rejet de la proposition');
+      }
+    } catch (err) {
+      showError(`Erreur lors du rejet de la proposition: ${err.message}`);
+    }
+  }, [showError]);
 
   // Afficher un message de bienvenue
   useEffect(() => {
@@ -310,14 +332,26 @@ const Dashboard = () => {
                     </p>
                     <div className="flex flex-wrap gap-sm">
                       {gap.missing.map((film) => (
-                        <Link
+                        <div
                           key={film.id}
-                          to={`/media/add?tmdbId=${film.id}`}
-                          className="flex items-center gap-xs bg-tertiary rounded-lg px-md py-sm text-sm hover:bg-accent hover:text-white transition-colors"
+                          className="flex items-center bg-tertiary rounded-lg text-sm overflow-hidden"
                         >
-                          <Plus size={14} />
-                          {film.title}{film.release_year ? ` (${film.release_year})` : ''}
-                        </Link>
+                          <Link
+                            to={`/media/add?tmdbId=${film.id}`}
+                            className="flex items-center gap-xs px-md py-sm hover:bg-accent hover:text-white transition-colors"
+                          >
+                            <Plus size={14} />
+                            {film.title}{film.release_year ? ` (${film.release_year})` : ''}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDismissCollectionItem(gap.collectionId, film.id)}
+                            className="self-stretch px-sm text-tertiary hover:text-danger hover:bg-black/10 transition-colors"
+                            title="Ignorer cette proposition"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>

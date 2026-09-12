@@ -166,6 +166,14 @@ const SCHEMA_SQL = `
       FOREIGN KEY (media_id) REFERENCES media(id)
     );
 
+    -- Films TMDB d'une collection écartés de "Complétez vos collections"
+    -- (l'utilisatrice ne veut pas qu'on les lui reproprose - ex: un film
+    -- qu'elle ne souhaite pas acheter).
+    CREATE TABLE IF NOT EXISTS dismissed_collection_items (
+      tmdb_id INTEGER PRIMARY KEY,
+      dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- Table des sauvegardes
     CREATE TABLE IF NOT EXISTS backups (
       id TEXT PRIMARY KEY,

@@ -175,6 +175,14 @@ function initDatabase() {
     db.run("UPDATE location_types SET name = 'DVDthèque', description = 'Emplacement pour DVDs et Blu-rays avec codes-barres' WHERE id = 1 AND name = 'DVDthèque_Jacquettes'", () => {});
     db.run("UPDATE location_types SET name = 'CDthèque', description = 'Emplacement pour CDs' WHERE id = 2 AND name = 'CDthèque_Sans_Jacquettes'", () => {});
 
+    // CREATE TABLE IF NOT EXISTS est sûr à rejouer à chaque démarrage (pas de
+    // duplicate column comme pour ALTER TABLE) - pour les bases créées avant
+    // l'ajout du bouton "Ignorer" sur les propositions de collection.
+    db.run(`CREATE TABLE IF NOT EXISTS dismissed_collection_items (
+      tmdb_id INTEGER PRIMARY KEY,
+      dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, () => {});
+
     return db;
   } catch (error) {
     log.error('Erreur lors de l\'initialisation de la base de données:', error);
@@ -1006,9 +1014,19 @@ function setupIPC() {
         );
       });
 
+      // Films explicitement ignorés via le bouton "Ignorer" du tableau de
+      // bord - ne doivent plus jamais être reproposés.
+      const dismissedIds = await new Promise((resolve, reject) => {
+        db.all(
+          'SELECT tmdb_id FROM dismissed_collection_items',
+          [],
+          (err, rows) => (err ? reject(err) : resolve(new Set(rows.map((r) => r.tmdb_id))))
+        );
+      });
+
       const parts = response.data.parts || [];
       const missing = parts
-        .filter((p) => !ownedIds.has(p.id))
+        .filter((p) => !ownedIds.has(p.id) && !dismissedIds.has(p.id))
         // Tri chronologique : le premier élément de "missing" est ainsi le
         // prochain film logique à proposer après celui qu'on vient d'ajouter,
         // pas un épisode pris au hasard dans l'ordre renvoyé par TMDB.
@@ -1032,6 +1050,25 @@ function setupIPC() {
     } catch (error) {
       log.error('Erreur lors de la vérification de la collection TMDB:', error.message);
       return { success: false, error: 'Erreur lors de la vérification de la collection.' };
+    }
+  });
+
+  // Canal pour écarter définitivement un film suggéré dans "Complétez vos
+  // collections" (ex: un épisode qu'on ne souhaite pas acheter) - il ne sera
+  // plus jamais reproposé par get-collection-status.
+  ipcMain.handle('dismiss-collection-item', async (event, { tmdbId }) => {
+    try {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT OR IGNORE INTO dismissed_collection_items (tmdb_id) VALUES (?)',
+          [tmdbId],
+          (err) => (err ? reject(err) : resolve())
+        );
+      });
+      return { success: true };
+    } catch (error) {
+      log.error('Erreur lors du rejet de la proposition de collection:', error.message);
+      return { success: false, error: 'Erreur lors du rejet de la proposition.' };
     }
   });
 
