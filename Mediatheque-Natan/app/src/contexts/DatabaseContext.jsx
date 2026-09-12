@@ -53,13 +53,23 @@ export const DatabaseProvider = ({ children }) => {
     initAiService();
   }, []);
 
-  // Charger les données initiales
+  // Charger les données initiales. Ne dépend volontairement pas de `filters`:
+  // getMedia() ne sait de toute façon filtrer que sur location/type (pas sur
+  // search/category, absents de sa liste de colonnes reconnues), et chaque
+  // page qui utilise ces filtres (MediaLibrary, Recherche...) refiltre déjà
+  // `media` côté client. Avant ce correctif, loadData recréait sa référence
+  // à chaque changement de filtre - donc à CHAQUE FRAPPE dans la barre de
+  // recherche - ce qui relançait ces 7 requêtes et, le temps de la promesse,
+  // affichait un skeleton de chargement à la place du champ de recherche.
+  // Résultat concret : le champ perdait le focus à chaque lettre tapée, obligeant
+  // à recliquer dedans avant de pouvoir taper la suivante.
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      
-      // Charger les médias avec les filtres
-      const mediaResponse = await window.electronAPI.db.getMedia(filters);
+
+      // Charger tous les médias (le filtrage se fait côté client, voir
+      // commentaire ci-dessus)
+      const mediaResponse = await window.electronAPI.db.getMedia();
       if (mediaResponse.success) {
         setMedia(mediaResponse.data);
       }
@@ -108,7 +118,7 @@ export const DatabaseProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   // Charger les données au montage
   useEffect(() => {
