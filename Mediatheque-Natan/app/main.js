@@ -376,18 +376,36 @@ function createMenu() {
 function detectExternalDrives() {
   try {
     let drives = [];
-    
+
     if (process.platform === 'win32') {
-      // Windows
-      const output = execSync('wmic logicaldisk get deviceid,volumename,description').toString();
-      const lines = output.split('\n');
-      
-      for (let i = 1; i < lines.length; i++) {
-        const parts = lines[i].trim().split(/\s{2,}/);
-        if (parts.length >= 2 && parts[0] && parts[0].match(/^[A-Za-z]:$/)) {
+      // Windows. Format CSV plutôt que le format tableau par défaut : "wmic
+      // ... get champ1,champ2" réordonne les colonnes par ordre alphabétique
+      // du NOM du champ, PAS dans l'ordre demandé (deviceid,volumename,
+      // description devient donc Description,DeviceID,VolumeName à
+      // l'affichage) - lire les colonnes par position fixe supposait à tort
+      // l'ordre demandé, et ne matchait donc jamais le lecteur (parts[0]
+      // était la description "Local Fixed Disk", pas "D:"), d'où "aucun
+      // disque externe détecté" même avec un vrai disque branché. Le format
+      // CSV a le même souci de réordonnancement, mais fournit un en-tête
+      // qu'on peut indexer par nom de colonne plutôt que par position.
+      const output = execSync('wmic logicaldisk get deviceid,volumename,description /format:csv').toString();
+      const lines = output.split(/\r?\n/).filter((l) => l.trim().length > 0);
+
+      if (lines.length >= 2) {
+        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+        const deviceIdIdx = headers.indexOf('deviceid');
+        const volumeNameIdx = headers.indexOf('volumename');
+        const systemDrive = (process.env.SystemDrive || 'C:').toUpperCase();
+
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(',');
+          const deviceId = deviceIdIdx >= 0 ? (parts[deviceIdIdx] || '').trim() : '';
+          if (!deviceId.match(/^[A-Za-z]:$/) || deviceId.toUpperCase() === systemDrive) continue;
+
+          const volumeName = volumeNameIdx >= 0 ? (parts[volumeNameIdx] || '').trim() : '';
           drives.push({
-            path: parts[0],
-            name: parts[1] || 'Disque amovible',
+            path: deviceId,
+            name: volumeName || 'Disque amovible',
             type: 'external'
           });
         }
@@ -430,27 +448,31 @@ function detectExternalDrives() {
       }
     }
     
-    // Vérifier si un disque contient une base de données NATAN
-    const natanDrives = [];
-    for (const drive of drives) {
+    // Signale, pour chaque disque détecté, s'il contient déjà une base de
+    // données NATAN (utile pour proposer de la charger), SANS exclure les
+    // autres : le bouton "Détecter les disques" sert justement à choisir un
+    // disque vierge pour y activer le stockage externe la première fois -
+    // le filtrer aux seuls disques ayant déjà des données NATAN le rendait
+    // inutilisable pour ce cas, le plus courant ("aucun disque externe
+    // détecté" même avec un vrai disque branché et visible dans l'Explorateur).
+    const annotatedDrives = drives.map((drive) => {
       try {
         const dbPath = path.join(drive.path, 'Mediatheque-Natan', 'data', 'mediatheque.db');
         const oldDbPath = path.join(drive.path, 'mediatheque.db');
-        
-        if (fs.existsSync(dbPath) || fs.existsSync(oldDbPath)) {
-          natanDrives.push({
-            ...drive,
-            hasNatanDb: true,
-            dbPath: fs.existsSync(dbPath) ? dbPath : oldDbPath
-          });
-        }
+        const hasNatanDb = fs.existsSync(dbPath) || fs.existsSync(oldDbPath);
+        return {
+          ...drive,
+          hasNatanDb,
+          dbPath: hasNatanDb ? (fs.existsSync(dbPath) ? dbPath : oldDbPath) : null
+        };
       } catch (error) {
         log.error(`Erreur lors de la vérification du disque ${drive.path}:`, error);
+        return { ...drive, hasNatanDb: false, dbPath: null };
       }
-    }
-    
-    log.log('Disques externes détectés:', natanDrives);
-    return natanDrives;
+    });
+
+    log.log('Disques externes détectés:', annotatedDrives);
+    return annotatedDrives;
   } catch (error) {
     log.error('Erreur lors de la détection des disques externes:', error);
     return [];
