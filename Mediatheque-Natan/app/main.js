@@ -542,6 +542,43 @@ app.on('activate', () => {
 // à la fois par le canal IPC get-collection-status (déclenché depuis le
 // tableau de bord) et par l'export mobile (qui doit calculer les mêmes
 // données pour toutes les collections d'un coup, sans repasser par IPC).
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.m4v', '.mpg', '.mpeg', '.flv']);
+
+// Tags de release scène (qualité, codec, source...) à retirer d'un nom de
+// fichier/dossier pour ne garder que le titre - ex: "Camping.2014.1080p.
+// BluRay.x264-GROUP.mp4" doit devenir "Camping" (2014).
+const RELEASE_TAGS_REGEX = /\b(2160p|1080p|720p|480p|4k|uhd|bluray|blu-ray|bdrip|brrip|dvdrip|webrip|web-?dl|hdtv|hdrip|xvid|divx|x264|x265|h264|h265|hevc|aac|ac3|dts|remux|extended|unrated|directors?\s?cut|multi|vostfr|truefrench|french|vff|vo|repack|proper)\b/gi;
+
+// Devine un titre et une année à partir d'un nom de fichier ou de dossier
+// trouvé sur un disque externe - jamais parfait sur des noms de fichiers
+// réels, mais donne une base modifiable avant import plutôt que de tout
+// laisser à ressaisir à la main.
+function cleanTitleFromFilename(rawName, isDirectory) {
+  let name = rawName;
+  if (!isDirectory) {
+    const lastDot = name.lastIndexOf('.');
+    if (lastDot > 0) name = name.slice(0, lastDot);
+  }
+  name = name.replace(/[._]+/g, ' ');
+
+  let year = null;
+  const yearMatch = name.match(/\b(19\d{2}|20\d{2})\b/);
+  if (yearMatch) {
+    year = yearMatch[1];
+    name = name.slice(0, yearMatch.index) + ' ' + name.slice(yearMatch.index + yearMatch[0].length);
+  }
+
+  name = name.replace(RELEASE_TAGS_REGEX, ' ');
+  name = name.replace(/[[\]（）(){}]/g, ' ');
+  name = name.replace(/\s{2,}/g, ' ').trim();
+  // Tag de groupe de release scène (ex: "-GROUP") en toute fin de nom, une
+  // fois les tags de qualité/codec déjà retirés ci-dessus.
+  name = name.replace(/-\s*\S+$/, '').trim();
+  name = name.replace(/^[-\s]+|[-\s]+$/g, '').trim();
+
+  return { title: name, year };
+}
+
 async function getCollectionStatusData(collectionId) {
   const tmdbConfig = config.api?.tmdb;
   if (!tmdbConfig?.enabled || !tmdbConfig?.apiKey) {
@@ -820,6 +857,178 @@ function setupIPC() {
     } catch (error) {
       log.error('Erreur lors de l\'export:', error);
       return { success: false, error: error.message };
+    }
+  });
+
+  // Canal pour choisir un dossier (ex: sur un disque externe) et repérer les
+  // films à cataloguer : un sous-dossier ou un fichier vidéo à la racine =
+  // un titre candidat. Le titre et l'année sont devinés depuis le nom
+  // (cleanTitleFromFilename), à confirmer/corriger avant import réel -
+  // aucune écriture en base à cette étape.
+  ipcMain.handle('scan-external-folder', async () => {
+    try {
+      const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+        title: 'Choisir le dossier à cataloguer',
+        properties: ['openDirectory']
+      });
+      if (canceled || filePaths.length === 0) {
+        return { success: false, canceled: true };
+      }
+      const folderPath = filePaths[0];
+
+      const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+
+      const existingTitles = await new Promise((resolve, reject) => {
+        db.all('SELECT title FROM media', [], (err, rows) => (
+          err ? reject(err) : resolve(new Set(rows.map((r) => r.title.trim().toLowerCase())))
+        ));
+      });
+
+      const candidates = [];
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+
+        const isDirectory = entry.isDirectory();
+        if (!isDirectory) {
+          const ext = path.extname(entry.name).toLowerCase();
+          if (!VIDEO_EXTENSIONS.has(ext)) continue;
+        }
+
+        const { title, year } = cleanTitleFromFilename(entry.name, isDirectory);
+        if (!title) continue;
+
+        candidates.push({
+          id: uuid.v4(),
+          rawName: entry.name,
+          title,
+          releaseYear: year,
+          alreadyExists: existingTitles.has(title.trim().toLowerCase())
+        });
+      }
+
+      candidates.sort((a, b) => a.title.localeCompare(b.title, 'fr'));
+
+      return { success: true, folderPath, candidates };
+    } catch (error) {
+      log.error('Erreur lors du scan du dossier externe:', error.message);
+      return { success: false, error: 'Erreur lors du scan du dossier.' };
+    }
+  });
+
+  // Canal pour importer réellement les titres retenus après le scan
+  // (scan-external-folder) : crée un média par titre confirmé, rattaché à un
+  // emplacement dédié au dossier importé, avec un complément TMDB au
+  // meilleur effort quand une clé API est configurée (le titre/année devinés
+  // depuis le nom de fichier restent utilisés si TMDB ne trouve rien).
+  ipcMain.handle('import-scanned-titles', async (event, { folderPath, items }) => {
+    const dbGet = (sql, params) => new Promise((resolve, reject) => {
+      db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
+    });
+    const dbRun = (sql, params) => new Promise((resolve, reject) => {
+      db.run(sql, params, (err) => (err ? reject(err) : resolve()));
+    });
+
+    try {
+      const tmdbConfig = config.api?.tmdb;
+
+      const locationName = `Disque externe - ${path.basename(folderPath)}`;
+      let location = await dbGet('SELECT id FROM locations WHERE name = ?', [locationName]);
+      let locationId = location?.id;
+      if (!locationId) {
+        locationId = uuid.v4();
+        await dbRun(
+          'INSERT INTO locations (id, name, type_id, description) VALUES (?, ?, 6, ?)',
+          [locationId, locationName, `Import automatique depuis ${folderPath}`]
+        );
+      }
+
+      let imported = 0;
+      let matched = 0;
+      const failed = [];
+
+      for (const item of items) {
+        try {
+          const mediaId = uuid.v4();
+          const mediaData = {
+            title: item.title,
+            original_title: '',
+            type_id: 1,
+            release_year: item.releaseYear || null,
+            duration_minutes: null,
+            synopsis: '',
+            imdb_id: null,
+            tmdb_id: null,
+            jacket_image_url: '',
+            tmdb_collection_id: null,
+            tmdb_collection_name: null
+          };
+          let genres = [];
+
+          if (tmdbConfig?.enabled && tmdbConfig?.apiKey) {
+            try {
+              const searchResponse = await axios.get('https://api.themoviedb.org/3/search/movie', {
+                params: { api_key: tmdbConfig.apiKey, query: item.title, language: 'fr-FR', year: item.releaseYear || undefined }
+              });
+              const topResult = (searchResponse.data.results || [])[0];
+              if (topResult) {
+                const detail = await axios.get(`https://api.themoviedb.org/3/movie/${topResult.id}`, {
+                  params: { api_key: tmdbConfig.apiKey, language: 'fr-FR' }
+                });
+                mediaData.title = topResult.title;
+                mediaData.original_title = topResult.original_title || '';
+                mediaData.release_year = (topResult.release_date || '').slice(0, 4) || item.releaseYear || null;
+                mediaData.synopsis = topResult.overview || '';
+                mediaData.duration_minutes = detail.data.runtime || null;
+                mediaData.imdb_id = detail.data.imdb_id || null;
+                mediaData.tmdb_id = topResult.id;
+                mediaData.jacket_image_url = topResult.poster_path ? `https://image.tmdb.org/t/p/w500${topResult.poster_path}` : '';
+                if (detail.data.belongs_to_collection) {
+                  mediaData.tmdb_collection_id = detail.data.belongs_to_collection.id;
+                  mediaData.tmdb_collection_name = detail.data.belongs_to_collection.name;
+                }
+                genres = (detail.data.genres || []).map((g) => g.name);
+                matched++;
+              }
+            } catch (tmdbError) {
+              log.error(`Erreur TMDB pour "${item.title}":`, tmdbError.message);
+            }
+          }
+
+          await dbRun(
+            `INSERT INTO media (
+              id, title, original_title, type_id, release_year, duration_minutes,
+              synopsis, state_id, location_id, has_jacket, imdb_id, tmdb_id,
+              jacket_image_url, tmdb_collection_id, tmdb_collection_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              mediaId, mediaData.title, mediaData.original_title, mediaData.type_id,
+              mediaData.release_year, mediaData.duration_minutes, mediaData.synopsis,
+              2, locationId, 0, mediaData.imdb_id, mediaData.tmdb_id,
+              mediaData.jacket_image_url, mediaData.tmdb_collection_id, mediaData.tmdb_collection_name
+            ]
+          );
+
+          for (const genreName of genres) {
+            const existingCategory = await dbGet('SELECT id FROM categories WHERE name = ?', [genreName]);
+            let categoryId = existingCategory?.id;
+            if (!categoryId) {
+              categoryId = uuid.v4();
+              await dbRun('INSERT INTO categories (id, name, level) VALUES (?, ?, 1)', [categoryId, genreName]);
+            }
+            await dbRun('INSERT OR IGNORE INTO media_categories (media_id, category_id) VALUES (?, ?)', [mediaId, categoryId]);
+          }
+
+          imported++;
+        } catch (itemError) {
+          log.error(`Erreur lors de l'import de "${item.title}":`, itemError.message);
+          failed.push(item.title);
+        }
+      }
+
+      return { success: true, imported, matched, failed };
+    } catch (error) {
+      log.error('Erreur lors de l\'import groupé:', error.message);
+      return { success: false, error: 'Erreur lors de l\'import.' };
     }
   });
 

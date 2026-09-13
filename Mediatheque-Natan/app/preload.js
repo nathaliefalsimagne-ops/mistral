@@ -216,6 +216,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     detectDrives: () => ipcRenderer.invoke('detect-external-drives'),
     importFromExternal: (drivePath, merge) => ipcRenderer.invoke('import-from-external', { drivePath, merge }),
     exportToExternal: (drivePath) => ipcRenderer.invoke('export-to-external', { drivePath }),
+    scanExternalFolder: () => ipcRenderer.invoke('scan-external-folder'),
+    importScannedTitles: (folderPath, items) => ipcRenderer.invoke('import-scanned-titles', { folderPath, items }),
     syncWithExternal: (drivePath) => ipcRenderer.invoke('sync-with-external', { drivePath })
   },
   

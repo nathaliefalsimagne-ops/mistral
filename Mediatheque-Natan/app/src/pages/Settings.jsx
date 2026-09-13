@@ -754,8 +754,156 @@ const ExternalStorageSettings = ({ settings, onChange, onDetectDrives, onSync })
         )}
       </div>
     </SettingSection>
+
+    <CatalogExternalFolder />
   </div>
 );
+
+// Cataloguer automatiquement les fichiers/dossiers vidéo trouvés sur un
+// disque externe (ex: Elements (D:) contenant des dossiers "Batman", "Harry
+// Potter"...) : un scan propose un titre par sous-dossier ou fichier vidéo,
+// modifiable avant import, plutôt que de tout ressaisir un par un.
+const CatalogExternalFolder = () => {
+  const { success, error: showError } = useToast();
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResult, setScanResult] = useState(null); // { folderPath, candidates }
+  const [items, setItems] = useState([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importSummary, setImportSummary] = useState(null);
+
+  const handleScan = useCallback(async () => {
+    setIsScanning(true);
+    setImportSummary(null);
+    try {
+      const response = await window.electronAPI.external.scanExternalFolder();
+      if (response.canceled) {
+        // Rien à signaler, l'utilisatrice a fermé le sélecteur de dossier.
+      } else if (response.success) {
+        setScanResult(response);
+        setItems(response.candidates.map((c) => ({ ...c, selected: !c.alreadyExists })));
+        if (response.candidates.length === 0) {
+          showError('Aucun film ou dossier reconnu dans ce dossier.');
+        }
+      } else {
+        showError(response.error || 'Erreur lors du scan du dossier');
+      }
+    } catch (err) {
+      showError(`Erreur lors du scan: ${err.message}`);
+    } finally {
+      setIsScanning(false);
+    }
+  }, [showError]);
+
+  const toggleItem = useCallback((id) => {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, selected: !it.selected } : it)));
+  }, []);
+
+  const updateItemField = useCallback((id, field, value) => {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, [field]: value } : it)));
+  }, []);
+
+  const handleImport = useCallback(async () => {
+    const selected = items.filter((it) => it.selected && it.title.trim());
+    if (selected.length === 0) {
+      showError('Sélectionnez au moins un titre à importer');
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const response = await window.electronAPI.external.importScannedTitles(
+        scanResult.folderPath,
+        selected.map((it) => ({ title: it.title.trim(), releaseYear: it.releaseYear }))
+      );
+      if (response.success) {
+        setImportSummary(response);
+        success(`${response.imported} média(s) ajouté(s) (${response.matched} identifié(s) automatiquement via TMDB)`);
+        setScanResult(null);
+        setItems([]);
+      } else {
+        showError(response.error || "Erreur lors de l'import");
+      }
+    } catch (err) {
+      showError(`Erreur lors de l'import: ${err.message}`);
+    } finally {
+      setIsImporting(false);
+    }
+  }, [items, scanResult, success, showError]);
+
+  const selectedCount = items.filter((it) => it.selected).length;
+
+  return (
+    <SettingSection title="Cataloguer un dossier" icon={<HardDrive className="w-5 h-5" />}>
+      <div className="space-y-md">
+        <p className="text-sm text-tertiary">
+          Choisissez un dossier (par exemple sur un disque dur externe) contenant vos films : chaque
+          sous-dossier ou fichier vidéo trouvé sera proposé comme un titre à ajouter à votre médiathèque,
+          avec une tentative d'identification automatique via TMDB. Les titres déjà présents dans votre
+          médiathèque sont repérés et décochés par défaut.
+        </p>
+
+        <button
+          onClick={handleScan}
+          disabled={isScanning}
+          className="bg-primary border rounded px-md py-sm hover:bg-tertiary transition-colors disabled:opacity-50"
+        >
+          {isScanning ? 'Analyse en cours...' : 'Choisir un dossier à cataloguer'}
+        </button>
+
+        {importSummary && (
+          <div className="bg-tertiary rounded-lg p-md text-sm">
+            <p>{importSummary.imported} média(s) ajouté(s), dont {importSummary.matched} identifié(s) via TMDB.</p>
+            {importSummary.failed.length > 0 && (
+              <p className="text-danger mt-xs">Échec pour : {importSummary.failed.join(', ')}</p>
+            )}
+          </div>
+        )}
+
+        {scanResult && items.length > 0 && (
+          <div className="space-y-sm">
+            <p className="text-sm text-tertiary">
+              {items.length} titre(s) trouvé(s) dans {scanResult.folderPath} - {selectedCount} sélectionné(s)
+            </p>
+            <div className="max-h-96 overflow-y-auto space-y-xs border rounded-lg p-sm">
+              {items.map((item) => (
+                <div key={item.id} className="flex items-center gap-sm p-sm bg-tertiary rounded">
+                  <input
+                    type="checkbox"
+                    checked={item.selected}
+                    onChange={() => toggleItem(item.id)}
+                  />
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => updateItemField(item.id, 'title', e.target.value)}
+                    className="flex-1 bg-primary border rounded px-sm py-xs text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={item.releaseYear || ''}
+                    onChange={(e) => updateItemField(item.id, 'releaseYear', e.target.value)}
+                    placeholder="Année"
+                    className="w-20 bg-primary border rounded px-sm py-xs text-sm"
+                  />
+                  {item.alreadyExists && (
+                    <span className="text-xs text-tertiary whitespace-nowrap">déjà présent</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={handleImport}
+              disabled={isImporting || selectedCount === 0}
+              className="bg-accent text-white px-md py-sm rounded hover:bg-accent-light transition-colors disabled:opacity-50"
+            >
+              {isImporting ? 'Import en cours...' : `Importer les ${selectedCount} sélectionné(s)`}
+            </button>
+          </div>
+        )}
+      </div>
+    </SettingSection>
+  );
+};
 
 // Onglet APIs externes
 const ApiSettings = ({ settings, onChange }) => (
