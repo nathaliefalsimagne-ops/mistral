@@ -2,11 +2,19 @@ import React, { createContext, useState, useContext, useCallback } from 'react';
 
 const ToastContext = createContext();
 
+// Compteur partagé pour garantir un id de toast unique même quand deux
+// toasts sont déclenchés dans la même milliseconde (ex: deux imports TMDB
+// rapprochés) - Date.now() seul produisait alors deux toasts avec le
+// même id, ce que React (qui utilise cet id comme clé de liste) gère mal :
+// le bouton "x" et l'auto-fermeture d'un toast pouvaient alors n'avoir
+// aucun effet visible, les toasts s'empilant indéfiniment.
+let toastIdCounter = 0;
+
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((toast) => {
-    const id = Date.now().toString();
+    const id = `${Date.now()}-${++toastIdCounter}`;
     const newToast = {
       id,
       type: 'info',
