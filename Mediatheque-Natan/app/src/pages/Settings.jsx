@@ -27,7 +27,8 @@ import {
   Play,
   Square,
   RefreshCw,
-  BarChart3
+  BarChart3,
+  Smartphone
 } from 'lucide-react';
 
 const Settings = () => {
@@ -232,6 +233,22 @@ const Settings = () => {
     }
   }, [success, showError]);
 
+  // Exporter la médiathèque en page web autonome pour le téléphone (recherche
+  // et filtres, consultable hors connexion - ex: en boutique, loin du Wi-Fi
+  // sur lequel tourne l'application).
+  const exportMobileList = useCallback(async () => {
+    try {
+      const response = await window.electronAPI.api.exportMobileList();
+      if (response.success) {
+        success(`Export créé : ${response.filePath}`);
+      } else if (!response.canceled) {
+        showError(response.error || "Erreur lors de l'export");
+      }
+    } catch (err) {
+      showError(`Erreur lors de l'export: ${err.message}`);
+    }
+  }, [success, showError]);
+
   // Détecter les disques externes
   const detectExternalDrives = useCallback(async () => {
     try {
@@ -394,6 +411,7 @@ const Settings = () => {
               onChange={(field, value) => handleChange('database', field, value)}
               dbSize={dbSize}
               onCreateBackup={createBackup}
+              onExportMobileList={exportMobileList}
             />
           )}
 
@@ -606,7 +624,7 @@ const NotificationsSettings = ({ settings, onChange, onNestedChange, onTestNotif
 );
 
 // Onglet Base de données
-const DatabaseSettings = ({ settings, onChange, dbSize, onCreateBackup }) => (
+const DatabaseSettings = ({ settings, onChange, dbSize, onCreateBackup, onExportMobileList }) => (
   <div className="space-y-lg">
     <SettingSection title="Sauvegardes" icon={<Database className="w-5 h-5" />}>
       <div className="space-y-md">
@@ -662,6 +680,23 @@ const DatabaseSettings = ({ settings, onChange, dbSize, onCreateBackup }) => (
             </button>
           </Link>
         </div>
+      </div>
+    </SettingSection>
+
+    <SettingSection title="Consultation mobile" icon={<Smartphone className="w-5 h-5" />}>
+      <div className="space-y-md">
+        <p className="text-sm text-tertiary">
+          Génère une page web autonome (recherche et filtres inclus) listant votre médiathèque
+          et les collections incomplètes, consultable hors connexion. Synchronisez le fichier sur
+          votre téléphone (iCloud Drive, Mail, AirDrop...) pour vérifier avant un achat en boutique
+          si un titre est déjà dans votre collection, ou lesquels il manque pour la compléter.
+        </p>
+        <button
+          onClick={onExportMobileList}
+          className="bg-accent text-white px-md py-sm rounded hover:bg-accent-light transition-colors"
+        >
+          Exporter pour mobile
+        </button>
       </div>
     </SettingSection>
   </div>

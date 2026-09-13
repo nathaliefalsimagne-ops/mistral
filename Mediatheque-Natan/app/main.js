@@ -9,6 +9,7 @@ const csvParser = require('csv-parser');
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const mobileScanServer = require('./mobileScanServer');
+const { generateExportHtml } = require('./mobileExport');
 
 // Fixe le nom utilisé par Electron pour le dossier de données utilisateur
 // (userData). Sans ça, Electron utilise le nom du package.json en
@@ -514,6 +515,64 @@ app.on('activate', () => {
   }
 });
 
+// Compare une collection TMDB (ex: "Mission: Impossible Collection") à la
+// médiathèque et repère les épisodes manquants. Factorisé pour être appelé
+// à la fois par le canal IPC get-collection-status (déclenché depuis le
+// tableau de bord) et par l'export mobile (qui doit calculer les mêmes
+// données pour toutes les collections d'un coup, sans repasser par IPC).
+async function getCollectionStatusData(collectionId) {
+  const tmdbConfig = config.api?.tmdb;
+  if (!tmdbConfig?.enabled || !tmdbConfig?.apiKey) {
+    return { success: false, error: 'Configurez votre clé API TMDB dans Paramètres > APIs externes.' };
+  }
+
+  const response = await axios.get(`https://api.themoviedb.org/3/collection/${collectionId}`, {
+    params: { api_key: tmdbConfig.apiKey, language: 'fr-FR' }
+  });
+
+  const ownedIds = await new Promise((resolve, reject) => {
+    db.all(
+      'SELECT tmdb_id FROM media WHERE tmdb_collection_id = ?',
+      [collectionId],
+      (err, rows) => (err ? reject(err) : resolve(new Set(rows.map((r) => r.tmdb_id))))
+    );
+  });
+
+  // Films explicitement ignorés via le bouton "Ignorer" du tableau de bord -
+  // ne doivent plus jamais être reproposés.
+  const dismissedIds = await new Promise((resolve, reject) => {
+    db.all(
+      'SELECT tmdb_id FROM dismissed_collection_items',
+      [],
+      (err, rows) => (err ? reject(err) : resolve(new Set(rows.map((r) => r.tmdb_id))))
+    );
+  });
+
+  const parts = response.data.parts || [];
+  const missing = parts
+    .filter((p) => !ownedIds.has(p.id) && !dismissedIds.has(p.id))
+    // Tri chronologique : le premier élément de "missing" est ainsi le
+    // prochain film logique à proposer après celui qu'on vient d'ajouter,
+    // pas un épisode pris au hasard dans l'ordre renvoyé par TMDB.
+    .sort((a, b) => (a.release_date || '').localeCompare(b.release_date || ''))
+    .map((p) => ({
+      id: p.id,
+      title: p.title,
+      release_year: (p.release_date || '').slice(0, 4) || null,
+      poster_path: p.poster_path
+    }));
+
+  return {
+    success: true,
+    data: {
+      collectionName: response.data.name,
+      totalCount: parts.length,
+      ownedCount: parts.length - missing.length,
+      missing
+    }
+  };
+}
+
 // Configuration des canaux IPC
 function setupIPC() {
   // Canal pour exécuter des requêtes sur la base de données
@@ -997,56 +1056,7 @@ function setupIPC() {
   // Collection") à la médiathèque, et repérer les épisodes manquants.
   ipcMain.handle('get-collection-status', async (event, { collectionId }) => {
     try {
-      const tmdbConfig = config.api?.tmdb;
-      if (!tmdbConfig?.enabled || !tmdbConfig?.apiKey) {
-        return { success: false, error: 'Configurez votre clé API TMDB dans Paramètres > APIs externes.' };
-      }
-
-      const response = await axios.get(`https://api.themoviedb.org/3/collection/${collectionId}`, {
-        params: { api_key: tmdbConfig.apiKey, language: 'fr-FR' }
-      });
-
-      const ownedIds = await new Promise((resolve, reject) => {
-        db.all(
-          'SELECT tmdb_id FROM media WHERE tmdb_collection_id = ?',
-          [collectionId],
-          (err, rows) => (err ? reject(err) : resolve(new Set(rows.map((r) => r.tmdb_id))))
-        );
-      });
-
-      // Films explicitement ignorés via le bouton "Ignorer" du tableau de
-      // bord - ne doivent plus jamais être reproposés.
-      const dismissedIds = await new Promise((resolve, reject) => {
-        db.all(
-          'SELECT tmdb_id FROM dismissed_collection_items',
-          [],
-          (err, rows) => (err ? reject(err) : resolve(new Set(rows.map((r) => r.tmdb_id))))
-        );
-      });
-
-      const parts = response.data.parts || [];
-      const missing = parts
-        .filter((p) => !ownedIds.has(p.id) && !dismissedIds.has(p.id))
-        // Tri chronologique : le premier élément de "missing" est ainsi le
-        // prochain film logique à proposer après celui qu'on vient d'ajouter,
-        // pas un épisode pris au hasard dans l'ordre renvoyé par TMDB.
-        .sort((a, b) => (a.release_date || '').localeCompare(b.release_date || ''))
-        .map((p) => ({
-          id: p.id,
-          title: p.title,
-          release_year: (p.release_date || '').slice(0, 4) || null,
-          poster_path: p.poster_path
-        }));
-
-      return {
-        success: true,
-        data: {
-          collectionName: response.data.name,
-          totalCount: parts.length,
-          ownedCount: parts.length - missing.length,
-          missing
-        }
-      };
+      return await getCollectionStatusData(collectionId);
     } catch (error) {
       log.error('Erreur lors de la vérification de la collection TMDB:', error.message);
       return { success: false, error: 'Erreur lors de la vérification de la collection.' };
@@ -1069,6 +1079,92 @@ function setupIPC() {
     } catch (error) {
       log.error('Erreur lors du rejet de la proposition de collection:', error.message);
       return { success: false, error: 'Erreur lors du rejet de la proposition.' };
+    }
+  });
+
+  // Canal pour exporter la médiathèque en une page HTML autonome (recherche
+  // et filtres en JavaScript, aucune requête réseau à l'ouverture) - pensée
+  // pour être synchronisée sur un téléphone (iCloud Drive, Mail, AirDrop...)
+  // et consultée hors connexion, loin du Wi-Fi sur lequel tourne l'appli.
+  ipcMain.handle('export-mobile-list', async () => {
+    try {
+      const mediaRows = await new Promise((resolve, reject) => {
+        db.all(
+          'SELECT id, title, original_title, type_id, release_year, tmdb_collection_id, tmdb_collection_name FROM media ORDER BY title',
+          [],
+          (err, rows) => (err ? reject(err) : resolve(rows))
+        );
+      });
+
+      const categoryRows = await new Promise((resolve, reject) => {
+        db.all(
+          'SELECT mc.media_id, c.name FROM media_categories mc JOIN categories c ON c.id = mc.category_id',
+          [],
+          (err, rows) => (err ? reject(err) : resolve(rows))
+        );
+      });
+
+      const categoriesByMedia = new Map();
+      const allCategoryNames = new Set();
+      for (const row of categoryRows) {
+        if (!categoriesByMedia.has(row.media_id)) categoriesByMedia.set(row.media_id, []);
+        categoriesByMedia.get(row.media_id).push(row.name);
+        allCategoryNames.add(row.name);
+      }
+
+      const media = mediaRows.map((m) => ({
+        id: m.id,
+        title: m.title,
+        original_title: m.original_title,
+        type_id: m.type_id,
+        release_year: m.release_year,
+        categories: categoriesByMedia.get(m.id) || []
+      }));
+
+      // Une collection par tmdb_collection_id distinct, pas par média - un
+      // seul appel TMDB par collection possédée, comme sur le tableau de bord.
+      const collectionsById = new Map();
+      for (const m of mediaRows) {
+        if (m.tmdb_collection_id && !collectionsById.has(m.tmdb_collection_id)) {
+          collectionsById.set(m.tmdb_collection_id, m.tmdb_collection_name);
+        }
+      }
+
+      const collectionGaps = [];
+      for (const collectionId of collectionsById.keys()) {
+        try {
+          const result = await getCollectionStatusData(collectionId);
+          if (result.success && result.data.missing.length > 0) {
+            collectionGaps.push({ collectionName: result.data.collectionName, missing: result.data.missing });
+          }
+        } catch (gapError) {
+          log.error('Erreur lors du calcul des collections incomplètes pour l\'export:', gapError.message);
+        }
+      }
+
+      const html = generateExportHtml({
+        media,
+        categories: Array.from(allCategoryNames).sort((a, b) => a.localeCompare(b, 'fr')),
+        collectionGaps,
+        generatedAt: new Date().toISOString()
+      });
+
+      const defaultName = `Mediatheque-NATAN-mobile-${new Date().toISOString().slice(0, 10)}.html`;
+      const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+        title: 'Exporter pour consultation mobile',
+        defaultPath: defaultName,
+        filters: [{ name: 'Page web', extensions: ['html'] }]
+      });
+
+      if (canceled || !filePath) {
+        return { success: false, canceled: true };
+      }
+
+      fs.writeFileSync(filePath, html, 'utf-8');
+      return { success: true, filePath };
+    } catch (error) {
+      log.error('Erreur lors de l\'export mobile:', error.message);
+      return { success: false, error: 'Erreur lors de l\'export mobile.' };
     }
   });
 
