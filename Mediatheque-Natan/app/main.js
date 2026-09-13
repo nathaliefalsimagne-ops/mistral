@@ -547,7 +547,7 @@ const VIDEO_EXTENSIONS = new Set(['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.m4v'
 // Tags de release scène (qualité, codec, source...) à retirer d'un nom de
 // fichier/dossier pour ne garder que le titre - ex: "Camping.2014.1080p.
 // BluRay.x264-GROUP.mp4" doit devenir "Camping" (2014).
-const RELEASE_TAGS_REGEX = /\b(2160p|1080p|720p|480p|4k|uhd|bluray|blu-ray|bdrip|brrip|dvdrip|webrip|web-?dl|hdtv|hdrip|xvid|divx|x264|x265|h264|h265|hevc|aac|ac3|dts|remux|extended|unrated|directors?\s?cut|multi|vostfr|truefrench|french|vff|vo|repack|proper)\b/gi;
+const RELEASE_TAGS_REGEX = /\b(2160p|1080p|720p|480p|4k|uhd|bluray|blu-ray|bdrip|brrip|dvdrip|webrip|web-?dl|hdtv|hdrip|xvid|divx|x264|x265|h264|h265|hevc|aac|ac3|dts|remux|extended|unrated|directors?\s?cut|multi|vostfr|truefrench|french|vff|vfq|vf|vo|fr|repack|proper)\b/gi;
 
 // Devine un titre et une année à partir d'un nom de fichier ou de dossier
 // trouvé sur un disque externe - jamais parfait sur des noms de fichiers
@@ -976,7 +976,22 @@ function setupIPC() {
               const searchResponse = await axios.get('https://api.themoviedb.org/3/search/movie', {
                 params: { api_key: tmdbConfig.apiKey, query: item.title, language: 'fr-FR' }
               });
-              const topResult = (searchResponse.data.results || [])[0];
+              let topResult = (searchResponse.data.results || [])[0];
+
+              // Deuxième tentative si rien n'est trouvé : certains noms de
+              // dossiers personnels incluent un numéro de saga qui ne fait
+              // pas partie du titre officiel (ex: "Angelique 1 marquise des
+              // anges" -> "Angelique marquise des anges").
+              if (!topResult) {
+                const strippedTitle = item.title.replace(/\b\d{1,2}\b/g, ' ').replace(/\s{2,}/g, ' ').trim();
+                if (strippedTitle && strippedTitle.toLowerCase() !== item.title.toLowerCase()) {
+                  const retryResponse = await axios.get('https://api.themoviedb.org/3/search/movie', {
+                    params: { api_key: tmdbConfig.apiKey, query: strippedTitle, language: 'fr-FR' }
+                  });
+                  topResult = (retryResponse.data.results || [])[0];
+                }
+              }
+
               if (topResult) {
                 const detail = await axios.get(`https://api.themoviedb.org/3/movie/${topResult.id}`, {
                   params: { api_key: tmdbConfig.apiKey, language: 'fr-FR' }
