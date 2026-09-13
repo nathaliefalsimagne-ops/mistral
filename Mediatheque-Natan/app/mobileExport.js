@@ -13,8 +13,8 @@ function escapeHtml(str) {
 
 const TYPE_LABELS = { 1: 'DVD', 2: 'Blu-ray', 3: 'CD' };
 
-function generateExportHtml({ media, categories, collectionGaps, generatedAt }) {
-  const dataJson = JSON.stringify({ media, categories, collectionGaps }).replace(/</g, '\\u003c');
+function generateExportHtml({ media, categories, locations, collectionGaps, generatedAt }) {
+  const dataJson = JSON.stringify({ media, categories, locations: locations || [], collectionGaps }).replace(/</g, '\\u003c');
   const generatedLabel = new Date(generatedAt).toLocaleString('fr-FR');
 
   return `<!DOCTYPE html>
@@ -95,6 +95,11 @@ function generateExportHtml({ media, categories, collectionGaps, generatedAt }) 
         <option value="">Toutes les catégories</option>
       </select>
     </div>
+    <div class="filters-row">
+      <select id="location-filter">
+        <option value="">Tous les emplacements</option>
+      </select>
+    </div>
   </div>
 </header>
 <main>
@@ -114,6 +119,7 @@ const TYPE_LABELS = ${JSON.stringify(TYPE_LABELS)};
 const searchInput = document.getElementById('search');
 const typeFilter = document.getElementById('type-filter');
 const categoryFilter = document.getElementById('category-filter');
+const locationFilter = document.getElementById('location-filter');
 const libraryList = document.getElementById('library-list');
 const libraryCount = document.getElementById('library-count');
 const gapsList = document.getElementById('gaps-list');
@@ -129,10 +135,18 @@ DATA.categories.forEach((name) => {
   categoryFilter.appendChild(opt);
 });
 
+DATA.locations.forEach((name) => {
+  const opt = document.createElement('option');
+  opt.value = name;
+  opt.textContent = name;
+  locationFilter.appendChild(opt);
+});
+
 function renderLibrary() {
   const q = searchInput.value.trim().toLowerCase();
   const type = typeFilter.value;
   const category = categoryFilter.value;
+  const location = locationFilter.value;
 
   const filtered = DATA.media.filter((m) => {
     if (q) {
@@ -142,10 +156,11 @@ function renderLibrary() {
     }
     if (type && String(m.type_id) !== type) return false;
     if (category && !m.categories.includes(category)) return false;
+    if (location && m.location !== location) return false;
     return true;
   });
 
-  libraryCount.textContent = filtered.length + ' média(s)' + (q || type || category ? ' trouvé(s)' : ' au total');
+  libraryCount.textContent = filtered.length + ' média(s)' + (q || type || category || location ? ' trouvé(s)' : ' au total');
 
   if (filtered.length === 0) {
     libraryList.innerHTML = '<div class="empty">Aucun média ne correspond.</div>';
@@ -157,6 +172,7 @@ function renderLibrary() {
     return '<div class="card">' +
       '<div class="card-title">' + escapeHtmlClient(m.title) + '</div>' +
       '<div class="card-meta">' + (TYPE_LABELS[m.type_id] || '') + (m.release_year ? ' • ' + m.release_year : '') + '</div>' +
+      (m.location ? '<div class="card-meta">📍 ' + escapeHtmlClient(m.location) + '</div>' : '') +
       (badges ? '<div class="card-meta">' + badges + '</div>' : '') +
       '</div>';
   }).join('');
@@ -187,6 +203,7 @@ function escapeHtmlClient(str) {
 searchInput.addEventListener('input', renderLibrary);
 typeFilter.addEventListener('change', renderLibrary);
 categoryFilter.addEventListener('change', renderLibrary);
+locationFilter.addEventListener('change', renderLibrary);
 
 tabs.forEach((tab) => {
   tab.addEventListener('click', () => {

@@ -1349,7 +1349,11 @@ function setupIPC() {
     try {
       const mediaRows = await new Promise((resolve, reject) => {
         db.all(
-          'SELECT id, title, original_title, type_id, release_year, tmdb_collection_id, tmdb_collection_name FROM media ORDER BY title',
+          `SELECT m.id, m.title, m.original_title, m.type_id, m.release_year,
+                  m.tmdb_collection_id, m.tmdb_collection_name, l.name AS location_name
+           FROM media m
+           LEFT JOIN locations l ON l.id = m.location_id
+           ORDER BY m.title`,
           [],
           (err, rows) => (err ? reject(err) : resolve(rows))
         );
@@ -1377,6 +1381,7 @@ function setupIPC() {
         original_title: m.original_title,
         type_id: m.type_id,
         release_year: m.release_year,
+        location: m.location_name || null,
         categories: categoriesByMedia.get(m.id) || []
       }));
 
@@ -1401,9 +1406,12 @@ function setupIPC() {
         }
       }
 
+      const allLocationNames = new Set(media.map((m) => m.location).filter(Boolean));
+
       const html = generateExportHtml({
         media,
         categories: Array.from(allCategoryNames).sort((a, b) => a.localeCompare(b, 'fr')),
+        locations: Array.from(allLocationNames).sort((a, b) => a.localeCompare(b, 'fr')),
         collectionGaps,
         generatedAt: new Date().toISOString()
       });

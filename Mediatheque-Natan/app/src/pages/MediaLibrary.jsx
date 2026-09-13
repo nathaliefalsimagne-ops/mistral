@@ -453,6 +453,7 @@ const MediaLibrary = () => {
                     <th className="py-sm px-md text-left hidden md:table-cell">Année</th>
                     <th className="py-sm px-md text-left hidden lg:table-cell">Durée</th>
                     <th className="py-sm px-md text-left hidden lg:table-cell">Note</th>
+                    <th className="py-sm px-md text-left hidden md:table-cell">Emplacement</th>
                     <th className="py-sm px-md text-left">Actions</th>
                   </tr>
                 </thead>
@@ -500,6 +501,9 @@ const MediaLibrary = () => {
                               ⭐ {mediaItem.average_rating}
                             </span>
                           ) : 'N/A'}
+                        </td>
+                        <td className="py-sm px-md hidden md:table-cell">
+                          {location?.name || 'N/A'}
                         </td>
                         <td className="py-sm px-md">
                           <div className="flex items-center gap-sm">
