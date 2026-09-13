@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useDatabase } from '../contexts/DatabaseContext';
 import { getAiService } from '../services';
 import {
   ArrowLeft,
@@ -765,6 +766,7 @@ const ExternalStorageSettings = ({ settings, onChange, onDetectDrives, onSync })
 // modifiable avant import, plutôt que de tout ressaisir un par un.
 const CatalogExternalFolder = () => {
   const { success, error: showError } = useToast();
+  const { refreshData } = useDatabase();
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null); // { folderPath, candidates }
   const [items, setItems] = useState([]);
@@ -820,6 +822,11 @@ const CatalogExternalFolder = () => {
         success(`${response.imported} média(s) ajouté(s) (${response.matched} identifié(s) automatiquement via TMDB)`);
         setScanResult(null);
         setItems([]);
+        // L'import écrit directement en base depuis le processus principal :
+        // sans ce rafraîchissement, la médiathèque déjà chargée en mémoire
+        // dans cette fenêtre ne voit jamais les nouveaux médias (ils
+        // n'apparaissent nulle part tant que l'app n'est pas redémarrée).
+        refreshData();
       } else {
         showError(response.error || "Erreur lors de l'import");
       }
@@ -828,7 +835,7 @@ const CatalogExternalFolder = () => {
     } finally {
       setIsImporting(false);
     }
-  }, [items, scanResult, success, showError]);
+  }, [items, scanResult, success, showError, refreshData]);
 
   const selectedCount = items.filter((it) => it.selected).length;
 
@@ -855,6 +862,16 @@ const CatalogExternalFolder = () => {
             <p>{importSummary.imported} média(s) ajouté(s), dont {importSummary.matched} identifié(s) via TMDB.</p>
             {importSummary.failed.length > 0 && (
               <p className="text-danger mt-xs">Échec pour : {importSummary.failed.join(', ')}</p>
+            )}
+            {importSummary.tmdbIssues?.length > 0 && (
+              <div className="text-tertiary mt-xs">
+                <p>Détail de la recherche TMDB :</p>
+                <ul className="list-disc list-inside">
+                  {importSummary.tmdbIssues.map((issue, i) => (
+                    <li key={i}>{issue}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}

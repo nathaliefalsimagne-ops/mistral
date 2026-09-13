@@ -945,6 +945,7 @@ function setupIPC() {
       let imported = 0;
       let matched = 0;
       const failed = [];
+      const tmdbIssues = [];
 
       for (const item of items) {
         try {
@@ -966,8 +967,14 @@ function setupIPC() {
 
           if (tmdbConfig?.enabled && tmdbConfig?.apiKey) {
             try {
+              // Pas de filtre "year" ici : l'année devinée depuis le nom de
+              // fichier est parfois imprécise (date de sortie régionale,
+              // festival...), et TMDB l'applique strictement - un mauvais
+              // filtre peut donc écarter à tort le bon résultat plutôt que
+              // de simplement l'écarter du tri. Le titre seul suffit
+              // généralement à faire remonter le bon film en tête.
               const searchResponse = await axios.get('https://api.themoviedb.org/3/search/movie', {
-                params: { api_key: tmdbConfig.apiKey, query: item.title, language: 'fr-FR', year: item.releaseYear || undefined }
+                params: { api_key: tmdbConfig.apiKey, query: item.title, language: 'fr-FR' }
               });
               const topResult = (searchResponse.data.results || [])[0];
               if (topResult) {
@@ -988,9 +995,15 @@ function setupIPC() {
                 }
                 genres = (detail.data.genres || []).map((g) => g.name);
                 matched++;
+              } else {
+                tmdbIssues.push(`"${item.title}" : aucun résultat TMDB`);
               }
             } catch (tmdbError) {
-              log.error(`Erreur TMDB pour "${item.title}":`, tmdbError.message);
+              const reason = tmdbError.response
+                ? `HTTP ${tmdbError.response.status} - ${JSON.stringify(tmdbError.response.data)}`
+                : tmdbError.message;
+              log.error(`Erreur TMDB pour "${item.title}":`, reason);
+              tmdbIssues.push(`"${item.title}" : ${reason}`);
             }
           }
 
@@ -1025,7 +1038,7 @@ function setupIPC() {
         }
       }
 
-      return { success: true, imported, matched, failed };
+      return { success: true, imported, matched, failed, tmdbIssues };
     } catch (error) {
       log.error('Erreur lors de l\'import groupé:', error.message);
       return { success: false, error: 'Erreur lors de l\'import.' };
