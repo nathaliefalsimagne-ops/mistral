@@ -339,7 +339,7 @@ export const DatabaseProvider = ({ children }) => {
       // Historique d'emprunts, en complément des notes.
       let userHistory = [];
       if (userId) {
-        const loansResponse = await window.electronAPI.db.getLoansByUser(userId);
+        const loansResponse = await window.electronAPI.db.getLoans({ userId });
         if (loansResponse.success) {
           userHistory = loansResponse.data;
         }

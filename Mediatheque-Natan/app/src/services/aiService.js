@@ -245,15 +245,26 @@ class AiService {
     try {
       // Ajouter à l'historique
       this.addToConversation('user', message);
-      
-      // Construire le prompt avec l'historique
-      const prompt = this.buildChatPrompt(message);
 
-      const response = await axios.post(
-        `${this.config.baseUrl}/api/chat`,
-        {
+      // Message système envoyé une seule fois en tête de la conversation
+      // (jamais ajouté à l'historique lui-même, pour ne pas le dupliquer à
+      // chaque appel).
+      const messages = [
+        { role: 'system', content: this.config.app.systemPrompt },
+        ...this.getConversationMessages()
+      ];
+
+      // Ollama répond en NDJSON brut sur /api/chat (un objet JSON par ligne,
+      // sans préfixe SSE "data:") - `fetch` est utilisé plutôt qu'axios car
+      // axios n'expose pas de vrai ReadableStream/getReader() dans un
+      // contexte navigateur (renderer Electron), seule `fetch` le fait.
+      const response = await fetch(`${this.config.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: this.abortController.signal,
+        body: JSON.stringify({
           model: this.config.model,
-          messages: this.getConversationMessages(),
+          messages,
           stream: true,
           options: {
             temperature: this.config.temperature,
@@ -261,46 +272,46 @@ class AiService {
             top_k: this.config.top_k,
             num_predict: this.config.max_tokens
           }
-        },
-        {
-          timeout: this.config.timeout,
-          responseType: 'stream',
-          signal: this.abortController.signal,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
+        })
+      });
 
-      const reader = response.data.getReader();
+      if (!response.ok || !response.body) {
+        throw new Error(`Erreur HTTP ${response.status} lors de l'appel à Ollama`);
+      }
+
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullResponse = '';
+      let buffer = '';
 
       // eslint-disable-next-line no-constant-condition -- lecture de flux, sortie via `break` sur `done`
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim());
-        
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        // La dernière ligne peut être incomplète (coupée par le chunk réseau) :
+        // on la garde en tampon pour la compléter au tour suivant.
+        buffer = lines.pop() || '';
+
         for (const line of lines) {
-          if (line.startsWith('data:')) {
-            try {
-              const jsonData = JSON.parse(line.substring(5));
-              const content = jsonData.message?.content || jsonData.response || '';
-              
-              if (content) {
-                fullResponse += content;
-                if (onChunk) onChunk(content);
-              }
-              
-              // Vérifier si c'est la fin
-              if (jsonData.done) {
-                this.addToConversation('assistant', fullResponse);
-                if (onComplete) onComplete(fullResponse);
-              }
-            } catch (e) {
-              console.error('Erreur de parsing du chunk:', e);
+          if (!line.trim()) continue;
+          try {
+            const jsonData = JSON.parse(line);
+            const content = jsonData.message?.content || jsonData.response || '';
+
+            if (content) {
+              fullResponse += content;
+              if (onChunk) onChunk(content);
             }
+
+            if (jsonData.done) {
+              this.addToConversation('assistant', fullResponse);
+              if (onComplete) onComplete(fullResponse);
+            }
+          } catch (e) {
+            console.error('Erreur de parsing du chunk:', e);
           }
         }
       }

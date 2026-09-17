@@ -403,7 +403,7 @@ const Dashboard = () => {
                           <button
                             type="button"
                             onClick={() => handleDismissCollectionItem(gap.collectionId, film.id)}
-                            className="self-stretch px-sm text-tertiary hover:text-danger hover:bg-black/10 transition-colors"
+                            className="self-stretch px-sm text-primary hover:text-danger hover:bg-black/10 transition-colors"
                             title="Ignorer cette proposition"
                           >
                             <X size={14} />
