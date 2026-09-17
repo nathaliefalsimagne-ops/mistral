@@ -69,8 +69,16 @@ class RecommendationEngine {
         candidateMedia = allMedia.filter(media => !borrowedMediaIds.includes(media.id));
       }
 
+      // Index précalculé pour le score de popularité par catégorie (voir
+      // buildCategoryPopularityIndex) - sans lui, calculateScores devait
+      // interroger la base pour chaque média candidat, ce qui devenait
+      // impraticable sur une collection de plusieurs centaines de médias
+      // (la section "Recommandations" restait alors indéfiniment vide, le
+      // calcul n'aboutissant jamais).
+      const categoryIndex = await this.buildCategoryPopularityIndex();
+
       // Calculer les scores pour chaque média candidat
-      const scoredMedia = await this.calculateScores(candidateMedia, user, userLoans, allUsers);
+      const scoredMedia = await this.calculateScores(candidateMedia, user, userLoans, allUsers, categoryIndex);
 
       // Trier par score décroissant
       const sortedMedia = scoredMedia.sort((a, b) => b.score - a.score);
@@ -94,7 +102,7 @@ class RecommendationEngine {
   /**
    * Calculer les scores pour les médias
    */
-  async calculateScores(candidateMedia, user, userLoans, allUsers) {
+  async calculateScores(candidateMedia, user, userLoans, allUsers, categoryIndex) {
     const scoredMedia = [];
 
     for (const media of candidateMedia) {
@@ -106,8 +114,9 @@ class RecommendationEngine {
       score += historyScore * this.config.weights.historySimilarity;
       contributions.historySimilarity = historyScore * this.config.weights.historySimilarity;
 
-      // 2. Popularité dans la catégorie (20%)
-      const categoryScore = await this.calculateCategoryPopularity(media, userLoans, allUsers);
+      // 2. Popularité dans la catégorie (20%) - lecture dans l'index
+      // précalculé, sans requête en base pour ce média.
+      const categoryScore = this.calculateCategoryPopularityFromIndex(media, categoryIndex);
       score += categoryScore * this.config.weights.categoryPopularity;
       contributions.categoryPopularity = categoryScore * this.config.weights.categoryPopularity;
 
@@ -206,36 +215,60 @@ class RecommendationEngine {
   }
 
   /**
-   * Calculer la popularité dans la catégorie
+   * Précalcule, en une poignée de requêtes, tout ce qu'il faut pour situer
+   * la popularité de chaque catégorie (nombre d'emprunts / nombre de
+   * médias de la catégorie) - remplace l'ancienne approche qui refaisait
+   * ce calcul média par média avec une requête par catégorie ET une autre
+   * par média de cette catégorie : sur une collection de plusieurs
+   * centaines de médias, cela déclenchait des dizaines de milliers
+   * d'appels IPC séquentiels, rendant en pratique la section
+   * "Recommandations" indéfiniment vide (le calcul n'aboutissait jamais).
    */
-  async calculateCategoryPopularity(media, userLoans, allUsers) {
-    const mediaCategories = await this.getMediaCategories(media.id);
-    
-    if (mediaCategories.length === 0) {
+  async buildCategoryPopularityIndex() {
+    const categoryLinksRes = await this.db.query({
+      sql: 'SELECT media_id, category_id FROM media_categories',
+      params: []
+    });
+    const categoryLinks = categoryLinksRes.success ? categoryLinksRes.data : [];
+
+    const categoriesByMedia = new Map();
+    const mediaByCategory = new Map();
+    for (const link of categoryLinks) {
+      if (!categoriesByMedia.has(link.media_id)) categoriesByMedia.set(link.media_id, []);
+      categoriesByMedia.get(link.media_id).push(link.category_id);
+      if (!mediaByCategory.has(link.category_id)) mediaByCategory.set(link.category_id, []);
+      mediaByCategory.get(link.category_id).push(link.media_id);
+    }
+
+    const allLoans = await this.getAllLoans();
+    const loanCountByMedia = new Map();
+    for (const loan of allLoans) {
+      loanCountByMedia.set(loan.media_id, (loanCountByMedia.get(loan.media_id) || 0) + 1);
+    }
+
+    const categoryPopularity = new Map();
+    for (const [categoryId, mediaIds] of mediaByCategory.entries()) {
+      const totalLoans = mediaIds.reduce((sum, id) => sum + (loanCountByMedia.get(id) || 0), 0);
+      categoryPopularity.set(categoryId, mediaIds.length > 0 ? totalLoans / mediaIds.length : 0);
+    }
+
+    return { categoriesByMedia, categoryPopularity };
+  }
+
+  /**
+   * Popularité moyenne des catégories d'un média, lue dans l'index
+   * précalculé (buildCategoryPopularityIndex) - aucune requête en base.
+   */
+  calculateCategoryPopularityFromIndex(media, categoryIndex) {
+    const categoryIds = categoryIndex.categoriesByMedia.get(media.id) || [];
+    if (categoryIds.length === 0) {
       return 0.5;
     }
-
-    // Calculer la popularité moyenne des catégories du média
-    let totalPopularity = 0;
-    
-    for (const category of mediaCategories) {
-      // Obtenir tous les médias de cette catégorie
-      const categoryMedia = await this.getMediaByCategory(category.id);
-      
-      // Calculer le nombre total d'emprunts pour les médias de cette catégorie
-      let totalLoans = 0;
-      for (const catMedia of categoryMedia) {
-        const loans = await this.getMediaLoans(catMedia.id);
-        totalLoans += loans.length;
-      }
-      
-      // Popularité = nombre d'emprunts / nombre de médias dans la catégorie
-      const categoryPopularity = categoryMedia.length > 0 ? totalLoans / categoryMedia.length : 0;
-      totalPopularity += categoryPopularity;
-    }
-
-    // Popularité moyenne
-    return totalPopularity / mediaCategories.length;
+    const total = categoryIds.reduce(
+      (sum, catId) => sum + (categoryIndex.categoryPopularity.get(catId) || 0),
+      0
+    );
+    return total / categoryIds.length;
   }
 
   /**
