@@ -625,23 +625,6 @@ const AddMedia = ({ isEdit = false }) => {
               />
             </div>
 
-            {/* Note moyenne */}
-            <div>
-              <label className="block text-sm font-medium mb-sm">
-                Note moyenne
-              </label>
-              <input
-                type="number"
-                name="average_rating"
-                value={media.average_rating || ''}
-                onChange={handleChange}
-                placeholder="Note sur 10"
-                min="0"
-                max="10"
-                step="0.1"
-                className="w-full bg-primary border rounded px-md py-sm focus:outline-none focus:ring-2 focus:ring-accent"
-              />
-            </div>
           </div>
 
           {/* Synopsis */}

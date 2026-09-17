@@ -28,12 +28,14 @@ const Header = ({ onMenuClick, isSidebarCollapsed }) => {
     ]);
   }, []);
 
-  // Gérer la recherche
+  // Gérer la recherche - la page Recherche (SearchResults.jsx) lit sa
+  // requête depuis le paramètre d'URL "q", pas depuis le contexte : sans
+  // lui transmettre `?q=...`, elle affichait tous les médias au lieu du
+  // résultat de la recherche.
   const handleSearch = async (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      updateFilters({ search: searchQuery });
-      navigate('/search');
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
 
