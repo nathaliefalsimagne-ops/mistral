@@ -344,7 +344,7 @@ class AiService {
           }
         },
         {
-          timeout: this.config.timeout,
+          timeout: options.timeout || this.config.timeout,
           headers: { 'Content-Type': 'application/json' }
         }
       );
@@ -410,14 +410,19 @@ class AiService {
    */
   async getRecommendations(userHistory = [], availableMedia = [], preferences = {}) {
     try {
+      // Un prompt plus court (moins de candidats, moins d'historique) génère
+      // plus vite sur un modèle local tournant sur CPU - un timeout de
+      // 120s avec 50 candidats + tout l'historique s'est avéré trop juste
+      // en pratique.
       const prompt = this.config.app.recommendationPrompt
-        .replace('{history}', JSON.stringify(userHistory.slice(0, 20)))
+        .replace('{history}', JSON.stringify(userHistory.slice(0, 10)))
         .replace('{preferences}', JSON.stringify(preferences))
-        .replace('{availableMedia}', JSON.stringify(availableMedia.slice(0, 50)));
+        .replace('{availableMedia}', JSON.stringify(availableMedia.slice(0, 20)));
 
       const response = await this.generate(prompt, {
         temperature: 0.8,
-        max_tokens: 2048
+        max_tokens: 1024,
+        timeout: 240000
       });
 
       if (!response.success) {

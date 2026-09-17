@@ -307,9 +307,8 @@ const Dashboard = () => {
 
       {/* Section principale */}
       <div className="grid lg:grid-cols-3 gap-lg items-start">
-        {/* Colonne de gauche : répartition + collections incomplètes, à la
-            même largeur (lg:col-span-2) pour ne pas dépendre de la hauteur
-            de la colonne "Recommandations" à droite. */}
+        {/* Colonne de gauche : répartition des médias, à la même largeur
+            (lg:col-span-2) que la colonne "Recommandations" à droite. */}
         <div className="lg:col-span-2 space-y-lg">
           {/* Graphique de répartition */}
           <div className="bg-secondary rounded-xl p-lg">
@@ -374,48 +373,6 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-
-          {collectionGaps.length > 0 && (
-            <div className="bg-secondary rounded-xl p-lg">
-              <div className="flex items-center gap-sm mb-lg">
-                <Layers size={20} className="text-accent" />
-                <h2 className="text-xl font-semibold">Complétez vos collections</h2>
-              </div>
-              <div className="space-y-lg">
-                {collectionGaps.map((gap) => (
-                  <div key={gap.collectionId}>
-                    <p className="font-medium mb-sm">
-                      Il vous manque {gap.missing.length} film{gap.missing.length > 1 ? 's' : ''} de la collection « {gap.collectionName} »
-                    </p>
-                    <div className="flex flex-wrap gap-sm">
-                      {gap.missing.map((film) => (
-                        <div
-                          key={film.id}
-                          className="flex items-center bg-tertiary rounded-lg text-sm overflow-hidden"
-                        >
-                          <Link
-                            to={`/media/add?tmdbId=${film.id}`}
-                            className="flex items-center gap-xs px-md py-sm hover:bg-accent hover:text-white transition-colors"
-                          >
-                            <Plus size={14} />
-                            {film.title}{film.release_year ? ` (${film.release_year})` : ''}
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => handleDismissCollectionItem(gap.collectionId, film.id)}
-                            className="self-stretch px-sm text-primary hover:text-danger hover:bg-black/10 transition-colors"
-                            title="Ignorer cette proposition"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Recommandations */}
@@ -594,6 +551,50 @@ const Dashboard = () => {
                 }
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Complétez vos collections - placée en dernier sur le tableau de
+          bord, à la demande de l'utilisatrice. */}
+      {collectionGaps.length > 0 && (
+        <div className="bg-secondary rounded-xl p-lg">
+          <div className="flex items-center gap-sm mb-lg">
+            <Layers size={20} className="text-accent" />
+            <h2 className="text-xl font-semibold">Complétez vos collections</h2>
+          </div>
+          <div className="space-y-lg">
+            {collectionGaps.map((gap) => (
+              <div key={gap.collectionId}>
+                <p className="font-medium mb-sm">
+                  Il vous manque {gap.missing.length} film{gap.missing.length > 1 ? 's' : ''} de la collection « {gap.collectionName} »
+                </p>
+                <div className="flex flex-wrap gap-sm">
+                  {gap.missing.map((film) => (
+                    <div
+                      key={film.id}
+                      className="flex items-center bg-tertiary rounded-lg text-sm overflow-hidden"
+                    >
+                      <Link
+                        to={`/media/add?tmdbId=${film.id}`}
+                        className="flex items-center gap-xs px-md py-sm hover:bg-accent hover:text-white transition-colors"
+                      >
+                        <Plus size={14} />
+                        {film.title}{film.release_year ? ` (${film.release_year})` : ''}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleDismissCollectionItem(gap.collectionId, film.id)}
+                        className="self-stretch px-sm text-primary hover:text-danger hover:bg-black/10 transition-colors"
+                        title="Ignorer cette proposition"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
