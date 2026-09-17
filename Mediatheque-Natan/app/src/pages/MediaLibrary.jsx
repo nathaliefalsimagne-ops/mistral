@@ -78,6 +78,11 @@ const MediaLibrary = () => {
       return false;
     }
 
+    // Filtre par type de média
+    if (filters.type && String(m.type_id) !== String(filters.type)) {
+      return false;
+    }
+
     // Filtre par catégorie
     if (filters.category && !mediaCategoryMap.get(m.id)?.has(filters.category)) {
       return false;
@@ -292,7 +297,7 @@ const MediaLibrary = () => {
             >
               <Filter className="w-5 h-5" />
               <span>Filtres</span>
-              {(filters.location || filters.category) && (
+              {(filters.location || filters.category || filters.type) && (
                 <span className="bg-accent text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {Object.values(filters).filter(f => f !== '' && f !== null).length}
                 </span>
@@ -370,17 +375,14 @@ const MediaLibrary = () => {
             <div>
               <label className="block text-sm font-medium mb-sm">Type de média</label>
               <select
-                value={type || ''}
-                onChange={(e) => {
-                  // Changer le type dans l'URL
-                  // Cela serait géré par React Router
-                }}
+                value={filters.type || ''}
+                onChange={(e) => updateFilters({ type: e.target.value || null })}
                 className="w-full bg-primary border rounded px-sm py-xs focus:outline-none focus:ring-2 focus:ring-accent"
               >
                 <option value="">Tous les types</option>
-                <option value="DVD">DVD</option>
-                <option value="Blu-ray">Blu-ray</option>
-                <option value="CD">CD</option>
+                <option value="1">DVD</option>
+                <option value="2">Blu-ray</option>
+                <option value="3">CD</option>
               </select>
             </div>
             
@@ -532,7 +534,7 @@ const MediaLibrary = () => {
       )}
 
       {/* Réinitialiser les filtres */}
-      {(filters.search || filters.location || filters.category) && (
+      {(filters.search || filters.location || filters.category || filters.type) && (
         <div className="text-center">
           <button
             onClick={resetFilters}
