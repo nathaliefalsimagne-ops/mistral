@@ -615,9 +615,16 @@ async function getCollectionStatusData(collectionId) {
     );
   });
 
+  // Les "collections" TMDB listent aussi des films annoncés/à venir, parfois
+  // avec un titre et une date encore provisoires (qui peuvent changer ou ne
+  // jamais se concrétiser) - proposer d'acheter un film qui n'est pas encore
+  // sorti n'a pas de sens, donc on exclut tout ce qui n'a pas de date de
+  // sortie passée.
+  const today = new Date().toISOString().slice(0, 10);
   const parts = response.data.parts || [];
   const missing = parts
     .filter((p) => !ownedIds.has(p.id) && !dismissedIds.has(p.id))
+    .filter((p) => p.release_date && p.release_date <= today)
     // Tri chronologique : le premier élément de "missing" est ainsi le
     // prochain film logique à proposer après celui qu'on vient d'ajouter,
     // pas un épisode pris au hasard dans l'ordre renvoyé par TMDB.
