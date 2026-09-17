@@ -58,14 +58,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     
     searchMedia: (query) => {
+      // Le prénom et le nom sont comparés séparément ET ensemble (nom complet
+      // concaténé) - sans ce dernier cas, chercher "Will Smith" ne trouvait
+      // rien : ni first_name ("Will") ni last_name ("Smith") ne contiennent
+      // la phrase entière "will smith", seule leur concaténation le fait.
       return ipcRenderer.invoke('db-query', {
         sql: `SELECT DISTINCT media.* FROM media
                LEFT JOIN media_persons ON media_persons.media_id = media.id
                LEFT JOIN persons ON persons.id = media_persons.person_id
                WHERE media.title LIKE ? OR media.original_title LIKE ? OR media.synopsis LIKE ?
                   OR persons.first_name LIKE ? OR persons.last_name LIKE ?
+                  OR (persons.first_name || ' ' || persons.last_name) LIKE ?
                ORDER BY media.title`,
-        params: Array(5).fill(`%${query}%`)
+        params: Array(6).fill(`%${query}%`)
       });
     },
     
