@@ -58,15 +58,26 @@ const Dashboard = () => {
         if (user?.id) {
           const engine = await getRecommendationEngine(window.electronAPI.db);
           const engineResults = await engine.getHomepageRecommendations(user.id);
-          setRecommendations(engineResults.map(({ media: recMedia, reason }) => ({
-            id: recMedia.id,
-            mediaId: recMedia.id,
-            title: recMedia.title,
-            type: window.electronAPI.utils.getMediaTypeLabel(recMedia.type_id),
-            year: recMedia.release_year,
-            rating: recMedia.average_rating,
-            reason
-          })));
+
+          // Exclure les suggestions déjà écartées via le bouton "Ignorer".
+          const dismissedRes = await window.electronAPI.db.query(
+            'SELECT media_id FROM dismissed_recommendations', []
+          );
+          const dismissedIds = new Set(
+            dismissedRes.success ? dismissedRes.data.map((row) => row.media_id) : []
+          );
+
+          setRecommendations(engineResults
+            .filter(({ media: recMedia }) => !dismissedIds.has(recMedia.id))
+            .map(({ media: recMedia, reason }) => ({
+              id: recMedia.id,
+              mediaId: recMedia.id,
+              title: recMedia.title,
+              type: window.electronAPI.utils.getMediaTypeLabel(recMedia.type_id),
+              year: recMedia.release_year,
+              rating: recMedia.average_rating,
+              reason
+            })));
         }
       } catch (error) {
         console.error('Erreur lors du chargement du tableau de bord:', error);
@@ -133,6 +144,22 @@ const Dashboard = () => {
       }
     } catch (err) {
       showError(`Erreur lors du rejet de la proposition: ${err.message}`);
+    }
+  }, [showError]);
+
+  // Écarter définitivement une suggestion de la section "Recommandations"
+  // (ex: un film qu'on ne veut plus se voir reproposer) - retrait immédiat
+  // de l'état local pour un retour visuel instantané.
+  const handleDismissRecommendation = useCallback(async (mediaId) => {
+    try {
+      const response = await window.electronAPI.api.dismissRecommendation(mediaId);
+      if (response.success) {
+        setRecommendations(prev => prev.filter(rec => rec.mediaId !== mediaId));
+      } else {
+        showError(response.error || 'Erreur lors du rejet de la recommandation');
+      }
+    } catch (err) {
+      showError(`Erreur lors du rejet de la recommandation: ${err.message}`);
     }
   }, [showError]);
 
@@ -377,6 +404,7 @@ const Dashboard = () => {
                   key={rec.id}
                   recommendation={rec}
                   index={index + 1}
+                  onDismiss={handleDismissRecommendation}
                 />
               ))}
             </div>
@@ -515,7 +543,7 @@ const ProgressBar = ({ label, value, max, color, percentage, showLabel = true })
 );
 
 // Composant RecommendationCard
-const RecommendationCard = ({ recommendation, index }) => (
+const RecommendationCard = ({ recommendation, index, onDismiss }) => (
   <div className="group flex gap-md p-md rounded-lg transition-all duration-200 hover:bg-tertiary hover:-translate-y-0.5">
     <div className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-br from-accent to-accent-light shadow-glow transition-transform duration-300 group-hover:scale-110">
       <span className="text-xl font-bold text-white">{index}</span>
@@ -531,13 +559,21 @@ const RecommendationCard = ({ recommendation, index }) => (
         {recommendation.reason}
       </p>
     </div>
-    <div className="flex-shrink-0 self-center">
+    <div className="flex-shrink-0 self-center flex items-center gap-sm">
       <Link
         to={`/media/detail/${recommendation.mediaId}`}
         className="inline-block bg-accent text-white px-sm py-xs rounded text-sm transition-all duration-200 hover:bg-accent-light hover:-translate-y-0.5 hover:shadow-glow active:scale-95"
       >
         Voir
       </Link>
+      <button
+        onClick={() => onDismiss(recommendation.mediaId)}
+        className="text-tertiary hover:text-danger transition-colors p-xs"
+        title="Ignorer cette suggestion"
+        aria-label="Ignorer cette suggestion"
+      >
+        <X className="w-4 h-4" />
+      </button>
     </div>
   </div>
 );

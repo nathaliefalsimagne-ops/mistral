@@ -174,6 +174,12 @@ const SCHEMA_SQL = `
       dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Médias écartés de la section "Recommandations" du tableau de bord.
+    CREATE TABLE IF NOT EXISTS dismissed_recommendations (
+      media_id TEXT PRIMARY KEY,
+      dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- Table des sauvegardes
     CREATE TABLE IF NOT EXISTS backups (
       id TEXT PRIMARY KEY,

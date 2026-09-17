@@ -250,6 +250,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getTmdbGenres: (id, type) => ipcRenderer.invoke('get-tmdb-genres', { id, type }),
     getCollectionStatus: (collectionId) => ipcRenderer.invoke('get-collection-status', { collectionId }),
     dismissCollectionItem: (tmdbId) => ipcRenderer.invoke('dismiss-collection-item', { tmdbId }),
+    dismissRecommendation: (mediaId) => ipcRenderer.invoke('dismiss-recommendation', { mediaId }),
     exportMobileList: () => ipcRenderer.invoke('export-mobile-list'),
     searchMusicBrainz: (query) => ipcRenderer.invoke('search-musicbrainz', { query })
   },

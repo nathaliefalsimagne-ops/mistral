@@ -184,6 +184,14 @@ function initDatabase() {
       dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, () => {});
 
+    // Même principe pour le bouton "Ignorer" sur les recommandations du
+    // tableau de bord (section "Recommandations", basée sur les médias déjà
+    // possédés - distincte de "Complétez vos collections" ci-dessus).
+    db.run(`CREATE TABLE IF NOT EXISTS dismissed_recommendations (
+      media_id TEXT PRIMARY KEY,
+      dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, () => {});
+
     return db;
   } catch (error) {
     log.error('Erreur lors de l\'initialisation de la base de données:', error);
@@ -1338,6 +1346,25 @@ function setupIPC() {
     } catch (error) {
       log.error('Erreur lors du rejet de la proposition de collection:', error.message);
       return { success: false, error: 'Erreur lors du rejet de la proposition.' };
+    }
+  });
+
+  // Canal pour écarter définitivement une suggestion de la section
+  // "Recommandations" du tableau de bord (basée sur les médias déjà
+  // possédés) - elle ne sera plus jamais reproposée.
+  ipcMain.handle('dismiss-recommendation', async (event, { mediaId }) => {
+    try {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT OR IGNORE INTO dismissed_recommendations (media_id) VALUES (?)',
+          [mediaId],
+          (err) => (err ? reject(err) : resolve())
+        );
+      });
+      return { success: true };
+    } catch (error) {
+      log.error('Erreur lors du rejet de la recommandation:', error.message);
+      return { success: false, error: 'Erreur lors du rejet de la recommandation.' };
     }
   });
 
