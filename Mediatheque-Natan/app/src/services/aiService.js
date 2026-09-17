@@ -55,21 +55,23 @@ Exemples:
 Important: Ne retourne QUE la requête SQL ou les mots-clés, sans explication.`,
     
     // Prompt pour les recommandations
-    recommendationPrompt: `En tant qu'expert en médias, analyse le profil suivant et recommande des médias pertinents.
+    recommendationPrompt: `Tu recommandes à l'utilisatrice quoi regarder/écouter ensuite, en piochant UNIQUEMENT dans les médias qu'elle possède déjà (liste "Médias disponibles" ci-dessous - n'invente jamais un titre absent de cette liste).
+
+Note importante sur les notes : dans "Préférences.ratedFavorites", une note de 7/10 ou plus signale un thème/genre favori de l'utilisatrice - plus la note est haute (9-10 = coup de cœur), plus ce thème doit peser dans le choix. "Préférences.favoriteCategories" liste déjà ces genres favoris, classés par poids.
 
 Profil utilisateur:
-- Historique récent: {history}
-- Préférences: {preferences}
-- Médias disponibles: {availableMedia}
+- Historique d'emprunts récent: {history}
+- Préférences (genres favoris déduits des notes, et films notés >= 7/10): {preferences}
+- Médias disponibles (à choisir exclusivement parmi cette liste): {availableMedia}
 
-Retourne une liste de 5-10 recommandations avec justification pour chaque.
+Retourne 5 à 10 recommandations, chacune justifiée par un lien explicite avec un thème/note favori repéré dans le profil (ex: "Vous avez adoré [Film noté 9/10], ce [genre partagé] devrait vous plaire").
 Format JSON:
 {{
   "recommendations": [
     {{
-      "title": "Nom du média",
+      "title": "Titre exact tel qu'il apparaît dans Médias disponibles",
       "type": "film|série|musique",
-      "reason": "Pourquoi cette recommandation",
+      "reason": "Pourquoi cette recommandation, en citant le thème/film favori qui la justifie",
       "score": 0.0-1.0
     }}
   ]

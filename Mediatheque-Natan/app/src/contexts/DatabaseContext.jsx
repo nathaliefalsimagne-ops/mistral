@@ -284,7 +284,12 @@ export const DatabaseProvider = ({ children }) => {
     }
   }, [aiService, isAiAvailable, media]);
 
-  // Obtenir des recommandations IA
+  // Obtenir des recommandations IA basées sur l'historique d'emprunts ET les
+  // notes données par l'utilisatrice - une note haute (ex: 9/10) signale un
+  // thème/genre favori, pondéré en conséquence pour orienter les
+  // suggestions vers des médias déjà possédés mais pas encore identifiés
+  // comme coups de cœur.
+  const RATING_FAVORITE_THRESHOLD = 7;
   const getAiRecommendations = useCallback(async (userId = null, limit = 5) => {
     try {
       if (!aiService || !isAiAvailable) {
@@ -295,7 +300,43 @@ export const DatabaseProvider = ({ children }) => {
         };
       }
 
-      // Obtenir l'historique de l'utilisateur
+      // Rattacher les catégories à chaque média : `media` (SELECT * FROM
+      // media) ne les porte pas nativement, il faut le join dédié.
+      const mediaCategoriesRes = await window.electronAPI.db.query(
+        'SELECT mc.media_id, c.name FROM media_categories mc JOIN categories c ON c.id = mc.category_id',
+        []
+      );
+      const categoriesByMedia = new Map();
+      if (mediaCategoriesRes.success) {
+        for (const row of mediaCategoriesRes.data) {
+          if (!categoriesByMedia.has(row.media_id)) categoriesByMedia.set(row.media_id, []);
+          categoriesByMedia.get(row.media_id).push(row.name);
+        }
+      }
+
+      // Coups de cœur déclarés par la note (>= 7/10) : leurs catégories
+      // pèsent d'autant plus que la note est haute.
+      const ratedFavorites = media
+        .filter(m => (m.average_rating || 0) >= RATING_FAVORITE_THRESHOLD)
+        .map(m => ({
+          title: m.title,
+          rating: m.average_rating,
+          categories: categoriesByMedia.get(m.id) || []
+        }))
+        .sort((a, b) => b.rating - a.rating);
+
+      const categoryWeights = {};
+      for (const fav of ratedFavorites) {
+        for (const cat of fav.categories) {
+          categoryWeights[cat] = (categoryWeights[cat] || 0) + (fav.rating - RATING_FAVORITE_THRESHOLD + 1);
+        }
+      }
+      const favoriteCategories = Object.entries(categoryWeights)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([cat]) => cat);
+
+      // Historique d'emprunts, en complément des notes.
       let userHistory = [];
       if (userId) {
         const loansResponse = await window.electronAPI.db.getLoansByUser(userId);
@@ -303,33 +344,43 @@ export const DatabaseProvider = ({ children }) => {
           userHistory = loansResponse.data;
         }
       } else {
-        // Utiliser tous les emprunts
         userHistory = loans;
       }
 
-      // Obtenir les préférences
-      const preferences = {};
-      if (userId) {
-        // Pour l'instant, on utilise les catégories les plus empruntées
-        const categoryStats = {};
-        userHistory.forEach(loan => {
-          const mediaItem = media.find(m => m.id === loan.media_id);
-          if (mediaItem && mediaItem.categories) {
-            mediaItem.categories.forEach(cat => {
-              categoryStats[cat] = (categoryStats[cat] || 0) + 1;
-            });
-          }
-        });
-        preferences.favoriteCategories = Object.entries(categoryStats)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
-          .map(([cat, count]) => cat);
-      }
+      const preferences = {
+        favoriteCategories,
+        ratedFavorites: ratedFavorites.slice(0, 15)
+      };
+
+      // Candidats proposés à l'IA : médias déjà possédés, hors coups de
+      // cœur déjà identifiés (inutile de re-suggérer ce qui est déjà connu
+      // comme favori) - elle choisit parmi eux plutôt que d'inventer des
+      // titres absents de la collection.
+      // Le service IA tronque la liste envoyée au modèle (contexte limité) -
+      // on trie donc par affinité avec les genres favoris avant troncature,
+      // pour que les candidats les plus pertinents soient ceux qui restent.
+      const favoriteTitles = new Set(ratedFavorites.map(f => f.title));
+      const favoriteCategorySet = new Set(favoriteCategories);
+      const candidates = media
+        .filter(m => !favoriteTitles.has(m.title))
+        .map(m => {
+          const mediaCategories = categoriesByMedia.get(m.id) || [];
+          return {
+            title: m.title,
+            type: window.electronAPI.utils.getMediaTypeLabel(m.type_id),
+            year: m.release_year,
+            categories: mediaCategories,
+            rating: m.average_rating || null,
+            _affinity: mediaCategories.filter(c => favoriteCategorySet.has(c)).length
+          };
+        })
+        .sort((a, b) => b._affinity - a._affinity)
+        .map(({ _affinity, ...candidate }) => candidate);
 
       // Obtenir les recommandations via IA
       const response = await aiService.getRecommendations(
         userHistory,
-        media,
+        candidates,
         preferences
       );
 
@@ -341,17 +392,19 @@ export const DatabaseProvider = ({ children }) => {
         };
       }
 
-      // Mapper les recommandations aux médias réels
+      // Mapper les recommandations (titres) aux médias réels de la collection
       const recommendedMedia = [];
       for (const rec of response.recommendations) {
-        const matchingMedia = media.filter(m => 
+        const matchingMedia = media.find(m =>
           m.title.toLowerCase().includes(rec.title.toLowerCase()) ||
           (m.original_title && m.original_title.toLowerCase().includes(rec.title.toLowerCase()))
         );
-        recommendedMedia.push({
-          ...rec,
-          media: matchingMedia
-        });
+        if (matchingMedia) {
+          recommendedMedia.push({
+            ...rec,
+            media: matchingMedia
+          });
+        }
       }
 
       return {

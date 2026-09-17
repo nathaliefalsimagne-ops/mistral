@@ -33,13 +33,16 @@ const getStateColor = (stateId) => {
 };
 
 const Dashboard = () => {
-  const { media, locations, users, loans, isLoading, getStats } = useDatabase();
+  const { media, locations, users, loans, isLoading, getStats, getAiRecommendations, isAiAvailable } = useDatabase();
   const { user } = useAuth();
   const { success, error: showError } = useToast();
   const [stats, setStats] = useState(null);
   const [recentMedia, setRecentMedia] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [collectionGaps, setCollectionGaps] = useState([]);
+  const [aiRecommendations, setAiRecommendations] = useState(null);
+  const [isLoadingAiRecommendations, setIsLoadingAiRecommendations] = useState(false);
+  const [aiRecommendationsError, setAiRecommendationsError] = useState(null);
 
   // Charger les statistiques et recommandations
   useEffect(() => {
@@ -162,6 +165,33 @@ const Dashboard = () => {
       showError(`Erreur lors du rejet de la recommandation: ${err.message}`);
     }
   }, [showError]);
+
+  // Suggestions générées par le modèle IA local (Ollama), à la demande car
+  // un appel peut prendre jusqu'à 2 minutes - contrairement à la section
+  // "Recommandations" (calcul instantané), celle-ci s'appuie sur les notes
+  // données par l'utilisatrice pour repérer ses thèmes favoris (une note
+  // >= 7/10 en est le signal) et choisit parmi ses médias déjà possédés.
+  const handleGenerateAiRecommendations = useCallback(async () => {
+    setIsLoadingAiRecommendations(true);
+    setAiRecommendationsError(null);
+    try {
+      const response = await getAiRecommendations(user?.id, 5);
+      if (response.success) {
+        setAiRecommendations(response.recommendations);
+        if (response.recommendations.length === 0) {
+          setAiRecommendationsError(
+            "L'IA n'a proposé aucun titre reconnu dans votre collection. Notez quelques films (7/10 ou plus) pour lui donner des thèmes favoris à suivre."
+          );
+        }
+      } else {
+        setAiRecommendationsError(response.error || 'Erreur lors de la génération des suggestions IA');
+      }
+    } catch (err) {
+      setAiRecommendationsError(`Erreur: ${err.message}`);
+    } finally {
+      setIsLoadingAiRecommendations(false);
+    }
+  }, [getAiRecommendations, user]);
 
   // Afficher un message de bienvenue
   useEffect(() => {
@@ -417,6 +447,68 @@ const Dashboard = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Suggestions IA - basées sur les notes données par l'utilisatrice
+          (thèmes favoris) et l'historique d'emprunts, générées à la demande
+          par le modèle Ollama local car un appel peut prendre jusqu'à
+          2 minutes. */}
+      <div className="bg-secondary rounded-xl p-lg">
+        <div className="flex items-center justify-between mb-lg">
+          <div>
+            <h2 className="text-xl font-semibold">Suggestions IA</h2>
+            <p className="text-sm text-tertiary mt-xs">
+              Basées sur vos films notés 7/10 ou plus (vos thèmes favoris) et votre historique d'emprunts
+            </p>
+          </div>
+          <button
+            onClick={handleGenerateAiRecommendations}
+            disabled={isLoadingAiRecommendations || !isAiAvailable}
+            className="bg-accent text-white px-md py-sm rounded-lg hover:bg-accent-light transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            {isLoadingAiRecommendations ? 'Génération en cours...' : 'Générer des suggestions IA'}
+          </button>
+        </div>
+
+        {!isAiAvailable && (
+          <p className="text-sm text-tertiary">
+            Assistant IA non disponible : vérifiez qu'Ollama tourne (<code>ollama serve</code>) et que le modèle configuré est installé.
+          </p>
+        )}
+
+        {isAiAvailable && aiRecommendationsError && (
+          <p className="text-sm text-danger">{aiRecommendationsError}</p>
+        )}
+
+        {isAiAvailable && aiRecommendations && aiRecommendations.length > 0 && (
+          <div className="space-y-md">
+            {aiRecommendations.map((rec, index) => (
+              <div key={rec.media.id} className="flex gap-md p-md rounded-lg hover:bg-tertiary transition-colors">
+                <div className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-br from-info to-accent">
+                  <span className="text-xl font-bold text-white">{index + 1}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold">{rec.media.title}</h3>
+                  <p className="text-xs text-secondary mt-xs">{rec.reason}</p>
+                </div>
+                <div className="flex-shrink-0 self-center">
+                  <Link
+                    to={`/media/detail/${rec.media.id}`}
+                    className="inline-block bg-accent text-white px-sm py-xs rounded text-sm hover:bg-accent-light transition-colors"
+                  >
+                    Voir
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isAiAvailable && !aiRecommendations && !isLoadingAiRecommendations && !aiRecommendationsError && (
+          <p className="text-sm text-tertiary">
+            Cliquez sur « Générer des suggestions IA » pour obtenir des idées personnalisées.
+          </p>
+        )}
       </div>
 
       {/* Médias récents */}
